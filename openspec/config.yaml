@@ -1,0 +1,37 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Backend: Python 3.11+, FastAPI, SQLAlchemy (async), Alembic, PostgreSQL
+  Frontend: React 19, TypeScript, Rspack + Module Federation 2.0, React Router v8
+  Infra: Docker, despliegue vía Azure DevOps
+  Testing: TDD estricto (Red-Green-Refactor). pytest + pytest-asyncio (backend),
+    Jest + React Testing Library (unit frontend), Playwright / Playwright MCP (E2E).
+    Cobertura mínima 80% en lógica de negocio.
+  Estilo: ruff + black + mypy (backend), ESLint + TypeScript estricto (frontend)
+
+rules:
+  proposal:
+    - Incluir plan de rollback
+    - Identificar equipos/microfrontends afectados por el cambio
+
+  specs:
+    - Usar formato Given/When/Then para los escenarios
+    - Referenciar patrones existentes antes de inventar nuevos
+
+  design:
+    - Incluir estrategia de testing por cada componente/endpoint nuevo
+    - Incluir diagramas de secuencia para flujos que toquen auth
+
+  tasks:
+    - Seguir la estructura y pasos obligatorios de openspec-tasks-mandatory-steps.md
+    - Nomenclatura de branch: feature/[change-name]-backend o feature/[change-name]-<microfrontend>
+
+  apply:
+    - Clasificar cada tarea por dominio y delegar a backend-expert, frontend-expert o qa-expert
+    - TDD por fase: qa-expert escribe el test (Red), backend-expert/frontend-expert implementan y refactorizan (Green/Refactor)
+    - Ejecutar los pasos obligatorios de openspec-tasks-mandatory-steps.md (branch, unit tests + DB, curl, Playwright MCP, docs)
+    - Si la spec o el design estaban mal, detenerse y actualizarlos antes de seguir
+
+  verify:
+    - Delegar a qa-expert en paralelo por dominio: cumplimiento de TDD, cobertura, tests pendientes sin resolver

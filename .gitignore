@@ -49,3 +49,6 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 *:Zone.Identifier
+
+# Playwright MCP dev/E2E artifacts
+.playwright-mcp/

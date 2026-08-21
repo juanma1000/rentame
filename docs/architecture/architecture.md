@@ -12,8 +12,26 @@ graph TD
         INQ[Inquilino]
     end
 
-    subgraph Frontend["Frontend — React (SPA Responsive)"]
-        FE[React App\nVite · React Router · Axios]
+    subgraph Frontend["Frontend — Microfrontends (Rspack + Module Federation 2.0)"]
+        SHELL["shell — host\nRouter global · Layout por rol · Auth context"]
+        BUSQAPP["busqueda-app — remote público\nBúsqueda · Filtros · Detalle inmueble"]
+        INMAPP["inmuebles-app — remote privado\nPublicación · Edición · Mis inmuebles · Vinculación agente"]
+        IDENTAPP["identidad-app — remote privado\nValidación de identidad del inquilino"]
+        ARRAPP["arrendamiento-app — remote privado\nSolicitudes · Documentos · Aprobación · Firma contrato"]
+        PAGAPP["pagos-app — remote privado\nPanel de pagos · Historial · Comprobantes"]
+        AUTHPKG["@rentame/auth\nSingleton compartido vía MF2\nuseAuth · AuthGuard · AuthProvider"]
+
+        SHELL -->|lazy load en runtime| BUSQAPP
+        SHELL -->|lazy load en runtime| INMAPP
+        SHELL -->|lazy load en runtime| IDENTAPP
+        SHELL -->|lazy load en runtime| ARRAPP
+        SHELL -->|lazy load en runtime| PAGAPP
+        SHELL -.-|singleton MF2| AUTHPKG
+        BUSQAPP -.-|singleton MF2| AUTHPKG
+        INMAPP -.-|singleton MF2| AUTHPKG
+        IDENTAPP -.-|singleton MF2| AUTHPKG
+        ARRAPP -.-|singleton MF2| AUTHPKG
+        PAGAPP -.-|singleton MF2| AUTHPKG
     end
 
     subgraph Backend["Backend — FastAPI (Arquitectura Hexagonal)"]
@@ -29,38 +47,49 @@ graph TD
     end
 
     subgraph Externos["Servicios Externos"]
-        IDENT[API Identidad\nVerificación cédula colombiana]
+        IDENTE[API Identidad\nVerificación cédula colombiana]
         RIESGO[API Riesgo / Seguro\nEstudio de crédito o seguro]
-        PAGOS[Pasarela de Pagos\nPSE · Tarjeta — mercado CO]
+        PAGOSEXT[Pasarela de Pagos\nPSE · Tarjeta — mercado CO]
         FIRMA[Proveedor Firma Electrónica\nLey 527 de 1999]
         EMAIL[Servidor de Email\nSMTP / SaaS — notificaciones]
     end
 
-    PRP -->|HTTPS| FE
-    AGT -->|HTTPS| FE
-    INQ -->|HTTPS| FE
+    PRP -->|HTTPS| SHELL
+    AGT -->|HTTPS| SHELL
+    INQ -->|HTTPS| SHELL
 
-    FE -->|REST / HTTPS + JWT| API
+    BUSQAPP -->|REST / HTTPS — sin JWT| API
+    INMAPP -->|REST / HTTPS + JWT| API
+    IDENTAPP -->|REST / HTTPS + JWT| API
+    ARRAPP -->|REST / HTTPS + JWT| API
+    PAGAPP -->|REST / HTTPS + JWT| API
+
     API --> UC
     UC --> DOM
-    DOM --> |interfaces / puertos| INFRA
+    DOM -->|interfaces / puertos| INFRA
 
     INFRA -->|SQLAlchemy ORM| PG
-    INFRA -->|boto3 / presigned URLs| S3
-    INFRA -->|REST / HTTPS| IDENT
+    INFRA -->|boto3 (proxy por backend, ver decisiones)| S3
+    INFRA -->|REST / HTTPS| IDENTE
     INFRA -->|REST / HTTPS| RIESGO
-    INFRA -->|REST / HTTPS + webhooks| PAGOS
+    INFRA -->|REST / HTTPS + webhooks| PAGOSEXT
     INFRA -->|REST / HTTPS| FIRMA
     INFRA -->|SMTP / API| EMAIL
 
-    PAGOS -->|Webhook HTTPS| API
+    PAGOSEXT -->|Webhook HTTPS| API
 ```
 
 **Descripción de componentes:**
 
 | Componente | Responsabilidad |
 |---|---|
-| React App | SPA responsiva que consume la API REST del backend. Slicing por feature/dominio. Maneja estado local y caché de peticiones con React Query. |
+| shell (host) | Aplicación contenedora que carga los remotes en runtime. Define el router global entre microfrontends, el layout (navbar y sidebar según rol) y provee el contexto de `@rentame/auth` a toda la aplicación. No contiene lógica de dominio. |
+| busqueda-app (remote) | Microfrontend público (sin sesión obligatoria): búsqueda de inmuebles con filtros, listado de resultados y detalle público de inmueble. Es la puerta de entrada de inquilinos sin registro. Puede acceder a la API sin JWT. |
+| inmuebles-app (remote) | Microfrontend privado para propietarios y agentes: publicar inmueble, editar, cambiar disponibilidad, panel "mis inmuebles" con gestión de estados y flujo de vinculación agente-propietario. Requiere sesión. |
+| identidad-app (remote) | Microfrontend privado para el inquilino: carga y validación de cédula (frente + dorso), estado de la verificación y bloqueo de flujos subsiguientes si la identidad no está aprobada. |
+| arrendamiento-app (remote) | Microfrontend privado: inquilino inicia solicitud y adjunta documentos; propietario/agente revisa, aprueba o rechaza; ambas partes firman el contrato electrónico. |
+| pagos-app (remote) | Microfrontend privado para el inquilino: panel de pago mensual (monto, fecha límite, método PSE/tarjeta), historial de pagos y descarga de comprobantes. |
+| @rentame/auth | Paquete compartido expuesto como singleton vía Module Federation 2.0. Provee `AuthProvider`, `useAuth` (user, token, login, logout) y `AuthGuard`. Se declara `singleton: true` en todos los remotes para garantizar una única instancia de React context en runtime. |
 | API Layer (FastAPI) | Adaptadores de entrada HTTP. Validan esquemas Pydantic, extraen JWT, delegan al caso de uso correspondiente. No contienen lógica de negocio. |
 | Application Layer | Casos de uso que orquestan el dominio. Coordinan puertos de salida sin depender de implementaciones concretas. |
 | Dominio | Entidades, objetos de valor, agregados y puertos (interfaces). Contiene las reglas de negocio puras. Sin dependencia de frameworks. |
@@ -242,7 +271,7 @@ El modelo central es `SOLICITUD_ARRENDAMIENTO`, que une al inquilino con el inmu
 ```mermaid
 sequenceDiagram
     actor PRP as Propietario
-    participant FE as Frontend React
+    participant FE as inmuebles-app
     participant API as API Layer (FastAPI)
     participant UC as PublicarInmuebleUseCase
     participant REPO as InmuebleRepository
@@ -283,7 +312,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor INQ as Inquilino (sin sesión)
-    participant FE as Frontend React
+    participant FE as busqueda-app
     participant API as API Layer (FastAPI)
     participant UC as BuscarInmueblesUseCase
     participant REPO as InmuebleRepository
@@ -317,8 +346,8 @@ sequenceDiagram
     FE-->>INQ: Muestra detalle completo
 
     INQ->>FE: Hace clic en "Solicitar arrendamiento"
-    FE->>FE: Detecta que no hay sesión activa
-    FE-->>INQ: Redirige a /registro o /login\n(solicitud se retoma tras autenticación)
+    FE->>FE: Detecta que no hay sesión activa (consulta @rentame/auth)
+    FE-->>INQ: Redirige al shell → /registro o /login\n(solicitud se retoma tras autenticación)
 ```
 
 ### 3c. Validación de identidad del inquilino
@@ -326,7 +355,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor INQ as Inquilino
-    participant FE as Frontend React
+    participant FE as identidad-app
     participant API as API Layer (FastAPI)
     participant UC as ValidarIdentidadUseCase
     participant REPO as ValidacionRepository
@@ -389,7 +418,7 @@ sequenceDiagram
 sequenceDiagram
     actor INQ as Inquilino
     actor PRP as Propietario
-    participant FE as Frontend React
+    participant FE as arrendamiento-app
     participant API as API Layer (FastAPI)
     participant UC_RIESGO as AnalizarRiesgoUseCase
     participant UC_CONTRATO as GenerarContratoUseCase
@@ -474,7 +503,7 @@ sequenceDiagram
 sequenceDiagram
     actor INQ as Inquilino
     actor PRP as Propietario
-    participant FE as Frontend React
+    participant FE as pagos-app
     participant API as API Layer (FastAPI)
     participant UC_PAGO as ProcesarPagoUseCase
     participant REPO_ARR as ArrendamientoRepository
@@ -611,7 +640,7 @@ backend/
 │       │   ├── models.py            # InmuebleORM, FotoInmuebleORM
 │       │   └── repository.py        # InmuebleRepositoryPostgres
 │       └── external/
-│           └── s3_storage_adapter.py# StoragePort → boto3 S3/MinIO con presigned URLs
+│           └── s3_storage_adapter.py# StoragePort → boto3 S3/MinIO, proxy por backend
 │
 ├── identidad/
 │   ├── domain/
@@ -695,111 +724,153 @@ backend/
 
 ---
 
-## 5. Estructura de carpetas — Frontend (React)
+## 5. Estructura de carpetas — Frontend (Microfrontends)
 
 ```
 frontend/
-├── index.html
-├── vite.config.ts
-├── tsconfig.json
-├── package.json
+├── shell/                              # Host: portal contenedor
+│   ├── src/
+│   │   ├── main.tsx                    # Punto de entrada; monta App con AuthProvider
+│   │   ├── App.tsx                     # Router global: carga lazy de remotes por ruta
+│   │   ├── layouts/
+│   │   │   ├── PublicLayout.tsx        # Sin sesión: navbar mínimo
+│   │   │   └── PrivateLayout.tsx       # Con sesión: nav completo, sidebar por rol
+│   │   └── remotes.d.ts                # Declaraciones de tipos para módulos remotos
+│   ├── rspack.config.ts                # MF2 host config: remotes[], shared (react, @rentame/auth)
+│   ├── package.json
+│   └── tsconfig.json
 │
-├── src/
-│   ├── main.tsx                     # Punto de entrada: monta App con providers
-│   │
-│   ├── app/                         # Configuración global de la aplicación
-│   │   ├── App.tsx                  # Árbol de rutas principal (React Router v6)
-│   │   ├── routes.tsx               # Definición de rutas y guards de autenticación
-│   │   ├── providers.tsx            # QueryClientProvider, AuthProvider, ToastProvider
-│   │   └── layouts/
-│   │       ├── PublicLayout.tsx     # Layout para rutas sin sesión (navbar mínimo)
-│   │       └── PrivateLayout.tsx    # Layout con nav completo y sidebar según rol
-│   │
-│   ├── shared/                      # Código transversal a todas las features
-│   │   ├── ui/
-│   │   │   ├── Button.tsx
-│   │   │   ├── Input.tsx
-│   │   │   ├── Modal.tsx
-│   │   │   ├── Badge.tsx            # Para estados (Disponible, Verificado, etc.)
-│   │   │   ├── FileUpload.tsx       # Input de archivos con preview
-│   │   │   ├── Spinner.tsx
-│   │   │   └── EmptyState.tsx
-│   │   ├── api/
-│   │   │   ├── axios.ts             # Instancia Axios con interceptores JWT
-│   │   │   └── api-error.ts         # Manejo centralizado de errores de API
-│   │   ├── hooks/
-│   │   │   ├── useToast.ts
-│   │   │   └── useDebounce.ts
-│   │   └── utils/
-│   │       ├── currency.ts          # Formateo COP ($ 2.000.000)
-│   │       └── date.ts              # Formateo de fechas en español
-│   │
-│   ├── auth/                        # Feature: autenticación y sesión
-│   │   ├── ui/
-│   │   │   ├── LoginPage.tsx        # Formulario login con manejo de errores
-│   │   │   ├── RegisterPage.tsx     # Registro con selector de rol
-│   │   │   └── AuthGuard.tsx        # HOC/wrapper que redirige si no hay sesión
+├── busqueda-app/                       # Remote: búsqueda pública de inmuebles (HU-003)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── PropertyCard.tsx        # Tarjeta en listado: foto, precio, habitaciones
+│   │   │   ├── PropertyGallery.tsx     # Galería de fotos en detalle de inmueble
+│   │   │   └── SearchFilters.tsx       # Panel de filtros: ciudad, barrio, precio, tipo
+│   │   ├── pages/
+│   │   │   ├── SearchPage.tsx          # Listado con filtros y resultados paginados
+│   │   │   └── PropertyDetailPage.tsx  # Detalle público + CTA "Solicitar arrendamiento"
+│   │   ├── services/
+│   │   │   └── propertyService.ts      # searchProperties(), getPropertyDetail()
 │   │   ├── model/
-│   │   │   ├── auth.types.ts        # Usuario, Token, Rol, AuthState
-│   │   │   └── auth.store.ts        # Zustand store: user, token, login(), logout()
-│   │   └── api/
-│   │       └── auth.api.ts          # login(), register(), refreshToken()
-│   │
-│   ├── inmuebles/                   # Feature: publicación y búsqueda de inmuebles
-│   │   ├── ui/
-│   │   │   ├── BusquedaPage.tsx     # Página pública con filtros y listado
-│   │   │   ├── DetalleInmueblePage.tsx # Detalle con galería y CTA "Solicitar"
-│   │   │   ├── PublicarInmueblePage.tsx # Formulario de publicación (propietario/agente)
-│   │   │   ├── MisInmueblesPage.tsx # Panel del propietario con listado y estados
-│   │   │   ├── InmuebleCard.tsx     # Tarjeta de resultado en búsqueda
-│   │   │   ├── FotoGaleria.tsx      # Galería de fotos del inmueble
-│   │   │   └── FiltrosInmueble.tsx  # Panel de filtros lateral/top
+│   │   │   └── property.types.ts       # PropertySummary, PropertyDetail, SearchFilters
+│   │   ├── SearchRoutes.tsx            # Expuesto via Module Federation (./SearchRoutes)
+│   │   └── index.tsx
+│   ├── rspack.config.ts                # exposes: { './SearchRoutes': './src/SearchRoutes' }
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── inmuebles-app/                      # Remote: gestión de inmuebles (HU-001, HU-002)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── PropertyForm.tsx        # Formulario unificado: crear / editar inmueble
+│   │   │   ├── PropertyStatusBadge.tsx # Badge: Disponible / No disponible / Oculto
+│   │   │   └── AgentLinkingFlow.tsx    # Flujo de invitación y vinculación agente-propietario
+│   │   ├── pages/
+│   │   │   ├── PublishPropertyPage.tsx # Formulario de publicación con carga de fotos
+│   │   │   ├── EditPropertyPage.tsx    # Edición de datos, fotos y estado del inmueble
+│   │   │   └── MyPropertiesPage.tsx    # Panel del propietario/agente: listado + estados
+│   │   ├── services/
+│   │   │   └── propertyManagementService.ts # publishProperty(), editProperty(), changeStatus()
 │   │   ├── model/
-│   │   │   └── inmueble.types.ts    # Inmueble, FiltrosInmueble, EstadoInmueble
-│   │   └── api/
-│   │       └── inmuebles.api.ts     # buscar(), obtenerDetalle(), publicar(), editar()
-│   │
-│   ├── identidad/                   # Feature: validación de identidad del inquilino
-│   │   ├── ui/
-│   │   │   ├── ValidarIdentidadPage.tsx # Flujo: formulario cédula + carga de fotos
-│   │   │   ├── EstadoBadge.tsx      # Badge "Verificado" / "Pendiente" / "Rechazado"
-│   │   │   └── IdentidadGuard.tsx   # HOC: bloquea avance si identidad no verificada
+│   │   │   └── property.types.ts       # Property, PropertyStatus, AgentRelation
+│   │   ├── PropertyRoutes.tsx          # Expuesto via Module Federation (./PropertyRoutes)
+│   │   └── index.tsx
+│   ├── rspack.config.ts                # exposes: { './PropertyRoutes': './src/PropertyRoutes' }
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── identidad-app/                      # Remote: validación de identidad del inquilino (HU-004)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── IdentityStatusBadge.tsx # Badge: Verificado / Pendiente / Rechazado
+│   │   │   └── DocumentUploader.tsx    # Input de imagen con preview (frente/dorso cédula)
+│   │   ├── pages/
+│   │   │   └── ValidateIdentityPage.tsx# Formulario de cédula + carga de fotos + resultado
+│   │   ├── services/
+│   │   │   └── identityService.ts      # validateIdentity(), getIdentityStatus()
 │   │   ├── model/
-│   │   │   └── identidad.types.ts   # ValidacionIdentidad, EstadoValidacion
-│   │   └── api/
-│   │       └── identidad.api.ts     # validarIdentidad(), obtenerEstado()
-│   │
-│   ├── arrendamiento/               # Feature: solicitudes y contratos
-│   │   ├── ui/
-│   │   │   ├── IniciarSolicitudPage.tsx # Resumen del inmueble + confirmación
-│   │   │   ├── AdjuntarDocumentosPage.tsx # Carga de desprendibles y certificados
-│   │   │   ├── MisSolicitudesPage.tsx # Panel del inquilino con estado de solicitudes
-│   │   │   ├── SolicitudesRecibidas.tsx # Panel del propietario/agente
-│   │   │   ├── DetalleSolicitudPage.tsx # Vista completa con timeline de estado
-│   │   │   └── FirmaContratoPage.tsx # Instrucciones y link a firma electrónica
+│   │   │   └── identity.types.ts       # IdentityValidation, ValidationStatus
+│   │   ├── IdentityRoutes.tsx          # Expuesto via Module Federation (./IdentityRoutes)
+│   │   └── index.tsx
+│   ├── rspack.config.ts                # exposes: { './IdentityRoutes': './src/IdentityRoutes' }
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── arrendamiento-app/                  # Remote: solicitudes y contratos (HU-005)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ApplicationTimeline.tsx # Timeline de estados de la solicitud
+│   │   │   ├── DocumentList.tsx        # Lista de documentos adjuntados con estado
+│   │   │   └── ContractSignFlow.tsx    # Instrucciones + link a proveedor de firma
+│   │   ├── pages/
+│   │   │   ├── StartApplicationPage.tsx    # Inquilino: resumen del inmueble + confirmación
+│   │   │   ├── UploadDocumentsPage.tsx     # Inquilino: carga de desprendibles y certificados
+│   │   │   ├── MyApplicationsPage.tsx      # Inquilino: panel con estado de solicitudes
+│   │   │   ├── ReceivedApplicationsPage.tsx# Propietario/agente: solicitudes recibidas
+│   │   │   ├── ApplicationDetailPage.tsx   # Vista completa con timeline y acciones
+│   │   │   └── ContractSignPage.tsx        # Ambas partes: instrucciones de firma
+│   │   ├── services/
+│   │   │   └── rentalService.ts        # createApplication(), uploadDocuments(), approve(), reject()
 │   │   ├── model/
-│   │   │   └── arrendamiento.types.ts # Solicitud, Contrato, EstadoSolicitud, ArrendamientoActivo
-│   │   └── api/
-│   │       └── arrendamiento.api.ts # crearSolicitud(), adjuntarDocs(), aprobar(), rechazar()
-│   │
-│   ├── riesgo/                      # Feature: análisis de riesgo (estado del proceso)
-│   │   ├── ui/
-│   │   │   └── EstadoRiesgoBanner.tsx # Banner informativo dentro de DetalleSolicitud
+│   │   │   └── rental.types.ts         # Application, Contract, ApplicationStatus, ActiveRental
+│   │   ├── RentalRoutes.tsx            # Expuesto via Module Federation (./RentalRoutes)
+│   │   └── index.tsx
+│   ├── rspack.config.ts                # exposes: { './RentalRoutes': './src/RentalRoutes' }
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── pagos-app/                          # Remote: pagos mensuales (HU-006)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── PaymentMethodSelector.tsx # Selector PSE / Tarjeta
+│   │   │   ├── PaymentHistoryTable.tsx   # Tabla: período, monto, estado, comprobante
+│   │   │   └── ReceiptLink.tsx           # Link de descarga del PDF de comprobante
+│   │   ├── pages/
+│   │   │   ├── PaymentDashboardPage.tsx  # Monto actual, fecha límite, botón "Pagar"
+│   │   │   └── PaymentHistoryPage.tsx    # Historial paginado con descarga de comprobantes
+│   │   ├── services/
+│   │   │   └── paymentService.ts         # initiatePayment(), getPaymentHistory(), getReceipt()
 │   │   ├── model/
-│   │   │   └── riesgo.types.ts      # AnalisisRiesgo, EstadoAnalisis, TipoAnalisis
-│   │   └── api/
-│   │       └── riesgo.api.ts        # obtenerEstadoRiesgo(solicitudId)
-│   │
-│   └── pagos/                       # Feature: pagos mensuales
-│       ├── ui/
-│       │   ├── PanelPagosPage.tsx   # Monto, fecha límite y botón "Pagar"
-│       │   ├── HistorialPagosPage.tsx # Tabla con historial y descarga de comprobantes
-│       │   ├── IniciarPagoModal.tsx # Selección de método PSE/Tarjeta
-│       │   └── ComprobanteLink.tsx  # Link de descarga del PDF
-│       ├── model/
-│       │   └── pago.types.ts        # Pago, EstadoPago, MetodoPago, PanelPagos
-│       └── api/
-│           └── pagos.api.ts         # iniciarPago(), obtenerHistorial(), descargarComprobante()
+│   │   │   └── payment.types.ts          # Payment, PaymentStatus, PaymentMethod, PaymentDashboard
+│   │   ├── PaymentRoutes.tsx             # Expuesto via Module Federation (./PaymentRoutes)
+│   │   └── index.tsx
+│   ├── rspack.config.ts                  # exposes: { './PaymentRoutes': './src/PaymentRoutes' }
+│   ├── package.json
+│   └── tsconfig.json
+│
+└── packages/
+    └── auth/                             # @rentame/auth — singleton compartido vía MF2
+        ├── src/
+        │   ├── AuthProvider.tsx          # React context: provee estado de sesión a toda la app
+        │   ├── useAuth.ts                # Hook: { user, token, isAuthenticated, login, logout }
+        │   ├── AuthGuard.tsx             # HOC/wrapper: redirige a /login si no hay sesión activa
+        │   └── auth.types.ts             # User, Token, Role (owner | agent | tenant), AuthState
+        ├── package.json                  # name: "@rentame/auth"
+        └── tsconfig.json
+```
+
+**Convención Module Federation 2.0 — ejemplo de config de remote:**
+
+```typescript
+// rspack.config.ts (remote — ej. pagos-app)
+import { ModuleFederationPlugin } from '@module-federation/enhanced/rspack';
+
+export default {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'pagosApp',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './PaymentRoutes': './src/PaymentRoutes',
+      },
+      shared: {
+        react:      { singleton: true, requiredVersion: false },
+        'react-dom': { singleton: true, requiredVersion: false },
+        '@rentame/auth': { singleton: true },
+      },
+    }),
+  ],
+};
 ```
 
 ---
@@ -808,17 +879,22 @@ frontend/
 
 | Decisión | Opción elegida | Justificación |
 |---|---|---|
+| Arquitectura frontend | Microfrontends con Rspack + Module Federation 2.0 (host/shell + 5 remotes + paquete `@rentame/auth`) | Cada dominio de negocio tiene su propio ciclo de desarrollo y despliegue independiente. El patrón MFE permite evolucionar `pagos-app` o `identidad-app` sin redeployar el resto. Para un proyecto de crecimiento iterativo, la separación por remote reduce el riesgo de regresiones cruzadas entre dominios. |
+| Split `busqueda-app` vs `inmuebles-app` | Dos remotes distintos: `busqueda-app` (público, sin sesión) e `inmuebles-app` (privado, requiere autenticación de propietario/agente) | Perfiles de auth distintos: `busqueda-app` es la puerta de entrada de inquilinos anónimos y no necesita JWT; `inmuebles-app` requiere sesión con rol `owner` o `agent`. Perfiles de tráfico distintos: búsqueda concentra el mayor volumen de visitas (discoverable por SEO y usuarios sin registro); publicación es un flujo de baja frecuencia y alta intención. Separar los remotes permite escalar y optimizar cada uno de forma independiente. |
+| Singleton de auth compartido | `@rentame/auth` expuesto vía MF2 con `singleton: true` para `react`, `react-dom` y el propio paquete | Garantiza una única instancia del contexto de sesión en runtime, independientemente de cuántos remotes estén montados simultáneamente. Evita el problema clásico de múltiples instancias de React (hooks que no funcionan porque ven contextos distintos). |
+| Versionado de contratos entre remotes | Cualquier cambio en la interfaz pública de un remote (`exposes`, props de rutas, eventos) se trata como breaking change y requiere coordinación explícita antes de desplegar | En MFE, un remote actualizado puede romperse con un host que no fue actualizado, o viceversa. Con un equipo unipersonal el riesgo es menor, pero el principio protege contra deploys asíncronos accidentales. |
 | Puerto de riesgo abstracto (`RiskAssessmentPort`) | Interfaz única con adaptadores intercambiables (`credito_adapter`, `seguro_adapter`) | El PRD no fija el proveedor de riesgo. Desacoplar el dominio permite cambiar o combinar proveedores sin tocar la capa de aplicación. Es la decisión de mayor impacto técnico del proyecto. |
 | Puerto de identidad abstracto (`IdentityVerificationPort`) | Interfaz única — proveedor concreto pendiente | Mismo principio: el dominio no debe conocer el proveedor de verificación de cédula colombiana. Cuando se seleccione el proveedor, solo se implementa un nuevo adaptador. |
 | Puerto de pagos abstracto (`PaymentGatewayPort`) | Interfaz única — pasarela concreta pendiente | Aisla el dominio de pagos de la pasarela colombiana específica (Wompi, ePayco, PayU). El flujo de webhooks queda en infraestructura. |
 | Puerto de firma electrónica (`ElectronicSignaturePort`) | Interfaz única — proveedor concreto pendiente (Certicámara, DocuSign CO, etc.) | Garantiza cumplimiento Ley 527/1999 sin acoplar el dominio a un proveedor específico. |
 | Base de datos relacional | PostgreSQL | Modelo de datos con relaciones claras (solicitud → contrato → arrendamiento → pagos). ACID requerido para transacciones de pago. PostgreSQL tiene soporte nativo de UUID, JSONB para respuestas de proveedores, y row-level security útil a futuro. |
 | Object storage | S3-compatible (MinIO local / AWS S3 producción) | Las fotos de inmuebles y documentos del inquilino no son datos relacionales. boto3 como cliente abstrae la diferencia entre MinIO y S3 real. El adaptador `s3_storage_adapter.py` implementa `StoragePort`. |
-| Autenticación | JWT con refresh tokens | Stateless, compatible con SPA React. El refresh token permite sesiones largas sin re-login frecuente. Se almacena en cookie HttpOnly. |
+| Mecanismo de subida de fotos | Proxy por backend (multipart), no presigned URLs | Resuelto en el change `hu-001` (ver `design.md`): el frontend envía los bytes en el mismo `multipart/form-data` que el resto del formulario de publicación, y el backend los sube a S3/MinIO. Se prefirió sobre presigned URLs por simplicidad para el primer dominio implementado (evita configurar CORS en el bucket y un endpoint adicional de generación de URLs firmadas). Corrige una inconsistencia de una versión anterior de este documento, donde la tabla de decisiones mencionaba presigned URLs pero el diagrama de secuencia de publicación siempre mostró el flujo de proxy por backend. |
+| Autenticación | JWT con refresh tokens | Stateless, compatible con MFE. El refresh token permite sesiones largas sin re-login. Se almacena en cookie HttpOnly. El singleton `@rentame/auth` gestiona el ciclo de vida del token para todos los remotes. |
 | Plataforma objetivo | Web responsiva (no PWA nativa) | Cumple el requisito "web y mobile" del PRD con menor superficie de mantenimiento para un equipo unipersonal. |
 | Canal de notificaciones | Email (canal inicial) | Cubre todos los eventos críticos del flujo. Push nativo requeriría Service Worker o app nativa — inviable para MVP unipersonal. El puerto de email permite agregar SMS/WhatsApp a futuro. |
-| Slicing de código | Por dominio/feature (no por tipo técnico) | Mejora cohesión: todo lo relacionado a `pagos/` vive junto. Facilita crecimiento independiente de cada dominio. Reduce acoplamiento accidental entre features. |
-| Frontend state management | Zustand (estado global) + React Query (estado servidor) | Zustand para auth y UI state; React Query para fetching, caching e invalidación. Evita Redux boilerplate innecesario para un proyecto de esta escala. |
+| Slicing de código — backend | Por dominio/feature (`usuarios/`, `inmuebles/`, `identidad/`, `arrendamiento/`, `riesgo/`, `pagos/`) | Mejora cohesión: todo lo relacionado a `pagos/` vive junto. Facilita crecimiento independiente de cada dominio. Reduce acoplamiento accidental entre features. |
+| Estado de servidor en frontend | React Query por remote | Cada remote gestiona su propio caché de servidor con React Query. El estado global de sesión (auth) queda centralizado en `@rentame/auth`. No se introduce Zustand adicional — el hook `useAuth` del singleton cubre el estado global necesario para el MVP. |
 
 ---
 
@@ -830,33 +906,43 @@ frontend/
 
 3. **Webhooks de pasarela de pagos sin entrega garantizada**: Si el webhook llega duplicado o con retraso, el estado del pago puede quedar inconsistente. Mitigación: idempotencia basada en `ref_transaccion_pasarela` y reconciliación periódica consultando el estado en la pasarela.
 
-4. **Equipo unipersonal**: La complejidad del sistema (5 integraciones externas, flujo multietapa) es alta para un solo desarrollador. El riesgo principal es el tiempo de implementación, especialmente en la integración y certificación de cada proveedor externo.
+4. **Complejidad de setup MFE para equipo unipersonal**: La arquitectura de microfrontends introduce 6 proyectos Rspack independientes (shell + 5 remotes) más un paquete compartido (`@rentame/auth`). El overhead de configuración inicial, gestión de dependencias cruzadas y coordinación de deploys es significativamente mayor que una SPA única. Mitigación: implementar los remotes en orden de prioridad del MVP y no paralelizar el setup hasta que el contrato de auth y el shell estén estabilizados.
 
-5. **Gestión de documentos sensibles**: Las fotos de cédulas y documentos financieros tienen requerimientos bajo Ley 1581/2012 (Habeas Data). El almacenamiento en S3 debe incluir cifrado en reposo y controles de acceso estrictos. El no cumplimiento genera riesgo legal.
+5. **Ruptura de contrato entre remotes en deploys asíncronos**: Si se despliega un remote con una interfaz de `exposes` nueva antes de actualizar el shell que lo consume (o viceversa), la aplicación puede fallar en runtime con errores difíciles de depurar. Mitigación: versionar los contratos explícitamente y mantener compatibilidad hacia atrás mientras el ciclo de actualización no esté completo.
 
-6. **Consistencia entre estado del inmueble y solicitudes concurrentes**: Si dos inquilinos inician solicitudes simultáneas sobre el mismo inmueble, el sistema debe manejar la concurrencia correctamente para evitar arrendamientos dobles. Requiere locking a nivel de base de datos al momento de aprobación.
+6. **Desarrollo local con múltiples procesos concurrentes**: Cada remote requiere su propio servidor de desarrollo Rspack. Con 6 remotes + paquete compartido, el entorno local puede volverse difícil de orquestar. Mitigación: definir un `docker-compose` o script de arranque que levante todos los remotes en paralelo con puertos fijos documentados.
 
-7. **Experiencia del inquilino en flujo multi-paso**: El flujo completo (registro → validación de identidad → solicitud → documentos → riesgo → firma → pago) es largo. Si el inquilino abandona a mitad de proceso, el sistema debe preservar el estado para reanudar sin repetir pasos ya completados.
+7. **Equipo unipersonal con alta superficie técnica**: La combinación de MFE + 5 integraciones externas + flujo multietapa en el backend es alta para un solo desarrollador. El riesgo principal es el tiempo de implementación y la dificultad para mantener los tests actualizados a medida que el sistema crece.
+
+8. **Gestión de documentos sensibles**: Las fotos de cédulas y documentos financieros tienen requerimientos bajo Ley 1581/2012 (Habeas Data). El almacenamiento en S3 debe incluir cifrado en reposo y controles de acceso estrictos. El no cumplimiento genera riesgo legal.
+
+9. **Consistencia entre estado del inmueble y solicitudes concurrentes**: Si dos inquilinos inician solicitudes simultáneas sobre el mismo inmueble, el sistema debe manejar la concurrencia correctamente para evitar arrendamientos dobles. Requiere locking a nivel de base de datos al momento de aprobación.
+
+10. **Experiencia del inquilino en flujo multi-paso**: El flujo completo (registro → validación de identidad → solicitud → documentos → riesgo → firma → pago) es largo. Si el inquilino abandona a mitad de proceso, el sistema debe preservar el estado para reanudar sin repetir pasos ya completados.
 
 ---
 
 ## 8. Supuestos
 
-1. **Puerto de riesgo intercambiable**: Se asume que existirá al menos un proveedor colombiano con API REST para estudio de crédito o seguro de arrendamiento. Si el proceso resulta ser manual o por email con el proveedor, el adaptador deberá emular el flujo síncrono con polling o proceso manual asistido.
+1. **Versionado de contratos entre remotes**: Se asume que cualquier cambio en la interfaz pública de un remote (rutas expuestas, props, eventos) se tratará como breaking change y se coordinará explícitamente antes de desplegarse. En un equipo unipersonal esto es autoimpuesto, pero debe documentarse para el día que el equipo crezca.
 
-2. **Identidad verificada una sola vez**: Se asume que la verificación de identidad del inquilino es válida indefinidamente en la plataforma. Si el proveedor requiere re-verificación periódica (por expiración de cédula u otros), el dominio deberá extenderse.
+2. **Despliegue independiente de remotes posible**: Se asume que el proveedor de hosting elegido permite servir cada `remoteEntry.js` desde una URL estática independiente (S3 + CloudFront, Vercel, Netlify, o equivalente), lo que es la condición necesaria para la independencia de despliegue de MFE.
 
-3. **Plataforma responsiva, no PWA nativa**: Se asume que los usuarios propietarios e inquilinos acceden predominantemente desde navegador (desktop y móvil). Si la demanda de app nativa surge, la API REST existente puede servir de base sin cambios en el backend.
+3. **Puerto de riesgo intercambiable**: Se asume que existirá al menos un proveedor colombiano con API REST para estudio de crédito o seguro de arrendamiento. Si el proceso resulta ser manual o por email con el proveedor, el adaptador deberá emular el flujo síncrono con polling o proceso manual asistido.
 
-4. **PostgreSQL como única base de datos**: Se asume que los volúmenes del MVP no requieren búsqueda full-text avanzada (Elasticsearch) ni caché distribuida (Redis). Si la búsqueda de inmuebles crece en complejidad (búsqueda geoespacial, texto libre), deberá evaluarse extensiones PostgreSQL (`pg_trgm`, `PostGIS`) antes de agregar nuevas tecnologías.
+4. **Identidad verificada una sola vez**: Se asume que la verificación de identidad del inquilino es válida indefinidamente en la plataforma. Si el proveedor requiere re-verificación periódica (por expiración de cédula u otros), el dominio deberá extenderse.
 
-5. **Email como único canal de notificaciones**: Se asume que los usuarios consultarán el email para notificaciones críticas (solicitud aprobada, pago recibido). Si el engagement por email es bajo, deberá evaluarse WhatsApp Business API o SMS como canal complementario.
+5. **Plataforma responsiva, no PWA nativa**: Se asume que los usuarios propietarios e inquilinos acceden predominantemente desde navegador (desktop y móvil). Si la demanda de app nativa surge, la API REST existente puede servir de base sin cambios en el backend.
 
-6. **Foco en Medellín para el MVP**: Se asume que las integraciones de identidad, riesgo y pagos son válidas para usuarios con cédula de ciudadanía colombiana y cuentas bancarias en Colombia. La expansión a otros países requeriría adaptadores adicionales en cada puerto.
+6. **PostgreSQL como única base de datos**: Se asume que los volúmenes del MVP no requieren búsqueda full-text avanzada (Elasticsearch) ni caché distribuida (Redis). Si la búsqueda de inmuebles crece en complejidad (búsqueda geoespacial, texto libre), deberá evaluarse extensiones PostgreSQL (`pg_trgm`, `PostGIS`) antes de agregar nuevas tecnologías.
 
-7. **Un inmueble tiene un solo arrendamiento activo a la vez**: Se asume que los inmuebles son unidades habitacionales completas (no piezas en habitación compartida). El modelo de datos y el dominio no están diseñados para subarrendamiento o cohabitación estructurada.
+7. **Email como único canal de notificaciones**: Se asume que los usuarios consultarán el email para notificaciones críticas (solicitud aprobada, pago recibido). Si el engagement por email es bajo, deberá evaluarse WhatsApp Business API o SMS como canal complementario.
 
-8. **Los precios se expresan en COP (pesos colombianos)**: No se contempla manejo multimoneda en el MVP. El tipo de cambio y conversión quedan fuera del alcance.
+8. **Foco en Medellín para el MVP**: Se asume que las integraciones de identidad, riesgo y pagos son válidas para usuarios con cédula de ciudadanía colombiana y cuentas bancarias en Colombia. La expansión a otros países requeriría adaptadores adicionales en cada puerto.
+
+9. **Un inmueble tiene un solo arrendamiento activo a la vez**: Se asume que los inmuebles son unidades habitacionales completas (no piezas en habitación compartida). El modelo de datos y el dominio no están diseñados para subarrendamiento o cohabitación estructurada.
+
+10. **Los precios se expresan en COP (pesos colombianos)**: No se contempla manejo multimoneda en el MVP. El tipo de cambio y conversión quedan fuera del alcance.
 
 ---
 
@@ -864,20 +950,22 @@ frontend/
 
 1. **Configurar la infraestructura base**: Repositorio, entorno local con Docker Compose (PostgreSQL + MinIO), estructura de carpetas del backend y scaffolding de Alembic para migraciones.
 
-2. **Implementar el dominio de `usuarios`**: Registro, login, JWT y el mecanismo de vinculación agente-propietario. Es la base transversal que todos los demás dominios requieren.
+2. **Implementar el dominio de `usuarios` en backend**: Registro, login, JWT y el mecanismo de vinculación agente-propietario. Es la base transversal que todos los demás dominios requieren.
 
-3. **Implementar el dominio de `inmuebles`**: Publicación, edición, búsqueda pública y gestión de fotos con S3. Permite validar el flujo completo de adaptadores (API → UC → dominio → repositorio + storage) con un caso concreto.
+3. **Inicializar el monorepo frontend**: Crear la estructura `frontend/` con el shell, los 5 remotes y el paquete `packages/auth`. Configurar Rspack + Module Federation 2.0 en el shell con los remotes apuntando a puertos locales fijos. Validar que el singleton `@rentame/auth` sea accesible desde todos los remotes antes de continuar.
 
-4. **Implementar el dominio de `identidad`**: Crear el `IdentityVerificationPort` y un adaptador stub/mock para desarrollar el flujo completo antes de integrar el proveedor real.
+4. **Implementar el dominio de `inmuebles` en backend**: Publicación, edición, búsqueda pública y gestión de fotos con S3. Permite validar el flujo completo de adaptadores (API → UC → dominio → repositorio + storage) con un caso concreto.
 
-5. **Implementar el dominio de `arrendamiento`**: Solicitudes, carga de documentos y el flujo de aprobación del propietario. El `ElectronicSignaturePort` puede quedar con adaptador mock inicialmente.
+5. **Implementar `busqueda-app` e `inmuebles-app`**: Con el backend de inmuebles disponible, construir los dos primeros remotes y validar el flujo público end-to-end (búsqueda sin sesión → detalle → CTA → login). Esto valida también el ruteo entre remotes vía el shell.
 
-6. **Implementar el dominio de `riesgo`**: El `RiskAssessmentPort` con adaptador mock permite completar el flujo del inquilino. La integración real con el proveedor se enchufa sin tocar el caso de uso.
+6. **Implementar el dominio de `identidad` en backend y `identidad-app`**: Crear el `IdentityVerificationPort` y un adaptador stub/mock para desarrollar el flujo completo antes de integrar el proveedor real.
 
-7. **Implementar el dominio de `pagos`**: Flujo de cobro mensual con `PaymentGatewayPort` y manejo de webhooks. Es el dominio de mayor criticidad operativa y debe tener las pruebas más robustas.
+7. **Implementar el dominio de `arrendamiento` en backend y `arrendamiento-app`**: Solicitudes, carga de documentos y el flujo de aprobación del propietario. El `ElectronicSignaturePort` puede quedar con adaptador mock inicialmente.
 
-8. **Seleccionar e integrar proveedores externos**: Identidad, riesgo/seguro, pasarela de pagos y firma electrónica. Cada integración reemplaza un adaptador mock por uno real sin cambiar la capa de aplicación ni el dominio.
+8. **Implementar el dominio de `riesgo` en backend**: El `RiskAssessmentPort` con adaptador mock permite completar el flujo del inquilino. La integración real con el proveedor se enchufa sin tocar el caso de uso.
 
-9. **Implementar el frontend**: Comenzar por `auth/` y `inmuebles/` para validar el flujo público end-to-end. Continuar con `identidad/`, `arrendamiento/`, `riesgo/` y `pagos/` en ese orden.
+9. **Implementar el dominio de `pagos` en backend y `pagos-app`**: Flujo de cobro mensual con `PaymentGatewayPort` y manejo de webhooks. Es el dominio de mayor criticidad operativa y debe tener las pruebas más robustas.
 
-10. **Configurar CI/CD**: Tests unitarios de dominio y casos de uso (sin base de datos), tests de integración con base de datos de prueba, y deploy automatizado a entorno de staging.
+10. **Seleccionar e integrar proveedores externos**: Identidad, riesgo/seguro, pasarela de pagos y firma electrónica. Cada integración reemplaza un adaptador mock por uno real sin cambiar la capa de aplicación ni el dominio.
+
+11. **Configurar CI/CD**: Tests unitarios de dominio y casos de uso (sin base de datos), tests de integración con base de datos de prueba, y deploy automatizado de cada remote de forma independiente a entorno de staging.

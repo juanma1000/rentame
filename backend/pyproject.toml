@@ -1,0 +1,65 @@
+[project]
+name = "rentame-backend"
+version = "0.1.0"
+description = "Rentame backend API — FastAPI, hexagonal architecture, domain slicing."
+requires-python = ">=3.11"
+
+# Dependency management: plain pip + requirements files (see requirements.txt /
+# requirements-dev.txt) rather than a build backend — this project is not
+# published as a distributable package, so pyproject.toml is used only for
+# metadata and tool configuration (ruff, black, mypy, pytest).
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+# B008: FastAPI's dependency injection idiom (`= Depends(...)` as a default
+# argument) is the documented, intentional pattern — not a real mutable-default
+# bug — and this codebase uses it throughout the API layer.
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["shared", "usuarios", "inmuebles"]
+
+[tool.ruff.lint.per-file-ignores]
+# Domain exception names across bounded contexts intentionally omit the
+# "Error" suffix (InmuebleNoEncontrado, PropietarioInvalido,
+# LimiteFotosExcedido), matching the naming already planned in
+# docs/architecture/architecture.md for every domain's `domain/exceptions.py`
+# (e.g. `identidad`'s IdentidadYaVerificada, ValidacionRechazada). This is a
+# deliberate, repo-wide naming decision, not an oversight — `shared/domain/
+# exceptions.py`'s base classes (DomainError, DomainValidationError) keep the
+# suffix since they name the *kind* of error, while concrete domain
+# exceptions name the *business condition* instead.
+"*/domain/exceptions.py" = ["N818"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "."
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["jose.*", "boto3.*", "botocore.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--cov=shared --cov=usuarios --cov-report=term-missing"
+# Note: the 80% coverage gate (openspec/config.yaml) is enforced explicitly
+# once the `inmuebles` domain lands (task 9.3), via `pytest --cov-fail-under=80`.
+# It is intentionally not a default here yet: this bootstrap phase only adds
+# auth/settings/database scaffolding, not the business logic coverage applies to.
+
+[tool.coverage.run]
+branch = true
+omit = ["tests/*", ".venv/*", "alembic/*"]

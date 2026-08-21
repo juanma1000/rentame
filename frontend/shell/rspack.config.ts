@@ -29,6 +29,10 @@ const config: Configuration = {
         type: 'javascript/auto',
         exclude: /node_modules/,
       },
+      {
+        test: /\.css$/,
+        type: 'css',
+      },
     ],
   },
   resolve: {

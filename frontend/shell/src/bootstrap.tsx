@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import '@rentame/design-tokens/src/tokens.css';
 import App from './App';
 
 const container = document.getElementById('root');

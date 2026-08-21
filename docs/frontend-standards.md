@@ -66,6 +66,7 @@ Este documento describe las mejores prácticas, convenciones y estándares usado
 - **Bootstrap 5 + React Bootstrap**: Framework CSS para diseño responsive *(ajustar si el proyecto usa un design system propio — por ejemplo, uno basado en la paleta de marca corporativa en vez de Bootstrap puro)*
 - **React Bootstrap Icons**: Librería de íconos
 - **React DatePicker**: Componentes de selección de fecha
+- **`@rentame/design-tokens`**: Paquete compartido con los tokens de color de marca y estilo base (`border-radius`). Ver `frontend/packages/design-tokens/README.md` para el valor de cada token y sus reglas de uso derivadas de contraste WCAG (ej. qué colores no combinar) antes de escribir estilos nuevos en cualquier microfrontend
 
 ### Manejo de Estado y Flujo de Datos
 - **React Hooks**: `useState`, `useEffect` para estado local
@@ -138,7 +139,8 @@ frontend/
 │   └── package.json
 ├── positions-app/                # Otro remote, misma estructura interna
 └── packages/
-    └── auth/                     # @celsia/auth — singleton compartido
+    ├── auth/                     # @celsia/auth — singleton compartido
+    └── design-tokens/            # @rentame/design-tokens — paleta y tokens de estilo compartidos
 ```
 
 ## Estándares de Código

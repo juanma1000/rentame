@@ -1,0 +1,10 @@
+{
+  "latestErrorEvent": {
+    "code": "TYPE-001",
+    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"/usr/bin/node /home/juanma100/code/Rentame/frontend/node_modules/typescript/bin/tsc --project /home/juanma100/code/Rentame/frontend/inmuebles-app/node_modules/.federation/tsconfig.d651865dcc45cc8be08105c7d273b1fc.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
+    "args": {
+      "cmd": "/usr/bin/node /home/juanma100/code/Rentame/frontend/node_modules/typescript/bin/tsc --project /home/juanma100/code/Rentame/frontend/inmuebles-app/node_modules/.federation/tsconfig.d651865dcc45cc8be08105c7d273b1fc.json"
+    },
+    "timestamp": 1787275220759
+  }
+}

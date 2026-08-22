@@ -624,22 +624,25 @@ backend/
 │       └── email/
 │           └── smtp_adapter.py      # Implementación EmailPort vía SMTP/SaaS
 │
-├── usuarios/
+├── usuarios/                          # HU-008 — registro real por rol + login (antes: stub mínimo de HU-001)
 │   ├── domain/
-│   │   ├── usuario.py               # Entidad Usuario, Rol enum
-│   │   ├── ports.py                 # UsuarioRepositoryPort (interface)
-│   │   └── exceptions.py            # UsuarioNoEncontrado, EmailDuplicado
+│   │   ├── usuario.py                 # Entidad Usuario — Usuario.crear() hashea con bcrypt,
+│   │   │                              # verificar_password(); password_hash nunca se serializa
+│   │   ├── ports.py                   # UsuarioRepositoryPort (guardar, obtener_por_email, obtener_por_id)
+│   │   └── exceptions.py              # EmailYaRegistrado, CredencialesInvalidas (misma excepción
+│   │                                  # para email inexistente y contraseña incorrecta, decisión 5)
 │   ├── application/
-│   │   ├── registrar_usuario.py     # Caso de uso: registro con hash de password (pendiente — hoy
-│   │   │                            # solo existe el stub mínimo de HU-001, sin registro/login real)
-│   │   └── autenticar_usuario.py    # Caso de uso: login → JWT + refresh token (idem, pendiente)
+│   │   ├── registrar_usuario.py       # UC: hashea password, rechaza email duplicado, rol fijo
+│   │   └── autenticar_usuario.py      # UC: valida credenciales, misma excepción en ambos rechazos
 │   └── infrastructure/
 │       ├── api/
-│       │   ├── router.py            # POST /auth/registro, POST /auth/login
-│       │   └── schemas.py           # RegistroRequest, LoginRequest, TokenResponse (Pydantic)
+│       │   ├── router.py              # POST /usuarios/registro, POST /usuarios/login — emiten JWT
+│       │   │                          # reutilizando shared/infrastructure/auth/jwt_handler.py sin modificarlo
+│       │   └── schemas.py             # RegistroRequest, LoginRequest, AuthResponse, UsuarioResponse
 │       └── persistence/
-│           ├── models.py            # UsuarioORM (incluye agencia_id, agregado por HU-007)
-│           └── repository.py        # UsuarioRepositoryPostgres implementa UsuarioRepositoryPort
+│           ├── models.py              # UsuarioORM: password_hash y nombre (nullable, HU-008),
+│           │                          # agencia_id (nullable, agregado por HU-007)
+│           └── repository.py          # UsuarioRepositoryPostgres implementa UsuarioRepositoryPort
 │
 ├── inmuebles/
 │   ├── domain/
@@ -690,8 +693,12 @@ backend/
 │   │                                 # para los inmuebles de la agencia revocada — sin modificar `inmuebles`
 │   └── infrastructure/
 │       ├── api/
-│       │   ├── router.py             # POST /agencias, /agencias/{id}/solicitudes, /relaciones, etc.
-│       │   └── schemas.py            # AgenciaResponse, SolicitudIngresoResponse, RelacionResponse
+│       │   ├── router.py             # POST /agencias, /agencias/{id}/solicitudes, /relaciones,
+│       │   │                         # GET /agencias/buscar?q=... (HU-008 — endpoint público, sin
+│       │   │                         # JWT, búsqueda case-insensitive por razón social/NIT, usado por
+│       │   │                         # el paso de agencia del registro de agente), etc.
+│       │   └── schemas.py            # AgenciaResponse, SolicitudIngresoResponse, RelacionResponse,
+│       │                             # AgenciaBuscarResponse (solo campos públicos, HU-008)
 │       └── persistence/
 │           ├── models.py             # AgenciaORM, SolicitudIngresoAgenciaORM, RelacionAgenciaPropietarioORM
 │           └── repository.py         # Repositorios Postgres para cada puerto
@@ -785,12 +792,25 @@ frontend/
 ├── shell/                              # Host: portal contenedor
 │   ├── src/
 │   │   ├── main.tsx                    # Punto de entrada; monta App con AuthProvider
-│   │   ├── App.tsx                     # Router global: carga lazy de remotes por ruta
+│   │   ├── App.tsx                     # Router global: EntradaPage/LoginPage/RegistroPage como
+│   │   │                              # rutas públicas (HU-008); PrivateLayout protege /mis-inmuebles
+│   │   ├── pages/
+│   │   │   ├── EntradaPage.tsx         # HU-008: pantalla de entrada, 3 opciones simétricas por rol
+│   │   │   ├── LoginPage.tsx           # HU-008: login email+contraseña; error único sin distinguir dato
+│   │   │   ├── RegistroPage.tsx        # HU-008: formulario parametrizado por rol (prop `rol`); para
+│   │   │   │                          # rol=agente encadena el paso de agencia (crear vs. buscar y unirse)
+│   │   │   └── MisInmueblesPage.tsx    # Placeholder — remote inmuebles-app se monta aquí (task 16+)
+│   │   ├── services/
+│   │   │   ├── usuarios.api.ts         # registrar(), login() → POST /usuarios/registro, /usuarios/login
+│   │   │   └── agencias.api.ts         # crearAgencia(), buscarAgencias(), solicitarUnirse() — subset
+│   │   │                              # mínimo deliberadamente duplicado del agencias.api de
+│   │   │                              # inmuebles-app (ver comentario en el archivo, HU-008)
 │   │   ├── layouts/
 │   │   │   ├── PublicLayout.tsx        # Sin sesión: navbar mínimo
 │   │   │   └── PrivateLayout.tsx       # Con sesión: nav completo, sidebar por rol
 │   │   └── remotes.d.ts                # Declaraciones de tipos para módulos remotos
-│   ├── rspack.config.ts                # MF2 host config: remotes[], shared (react, @rentame/auth)
+│   ├── rspack.config.ts                # MF2 host config: remotes[], shared (react, @rentame/auth);
+│   │                                  # output.publicPath: '/' (absoluto, no 'auto' — ver sección 6)
 │   ├── package.json
 │   └── tsconfig.json
 │
@@ -943,7 +963,8 @@ export default {
 | Base de datos relacional | PostgreSQL | Modelo de datos con relaciones claras (solicitud → contrato → arrendamiento → pagos). ACID requerido para transacciones de pago. PostgreSQL tiene soporte nativo de UUID, JSONB para respuestas de proveedores, y row-level security útil a futuro. |
 | Object storage | S3-compatible (MinIO local / AWS S3 producción) | Las fotos de inmuebles y documentos del inquilino no son datos relacionales. boto3 como cliente abstrae la diferencia entre MinIO y S3 real. El adaptador `s3_storage_adapter.py` implementa `StoragePort`. |
 | Mecanismo de subida de fotos | Proxy por backend (multipart), no presigned URLs | Resuelto en el change `hu-001` (ver `design.md`): el frontend envía los bytes en el mismo `multipart/form-data` que el resto del formulario de publicación, y el backend los sube a S3/MinIO. Se prefirió sobre presigned URLs por simplicidad para el primer dominio implementado (evita configurar CORS en el bucket y un endpoint adicional de generación de URLs firmadas). Corrige una inconsistencia de una versión anterior de este documento, donde la tabla de decisiones mencionaba presigned URLs pero el diagrama de secuencia de publicación siempre mostró el flujo de proxy por backend. |
-| Autenticación | JWT con refresh tokens | Stateless, compatible con MFE. El refresh token permite sesiones largas sin re-login. Se almacena en cookie HttpOnly. El singleton `@rentame/auth` gestiona el ciclo de vida del token para todos los remotes. |
+| Autenticación | JWT de solo access token (sin refresh token) | Resuelto en `hu-008` — implementado en `backend/usuarios/` (registro, login) reutilizando `shared/infrastructure/auth/jwt_handler.py` sin modificarlo. La idea original de este documento (refresh token en cookie HttpOnly) fue descartada explícitamente como no-goal de esa HU: la sesión es solo access token y, al expirar, el usuario vuelve a loguearse — sin mecanismo de refresh. El singleton `@rentame/auth` gestiona el ciclo de vida de ese único token para todos los remotes. |
+| `output.publicPath` del shell (Rspack) | Absoluto (`'/'`), no `'auto'` | nginx sirve `index.html` como fallback SPA para cualquier ruta (ej. navegación directa a `/registro/agente`). Con `'auto'`, el navegador resuelve la URL del script relativa a esa ruta (`/registro/main.js` → 404 → nginx devuelve `index.html` como si fuera JS → error `"Unexpected token '<'"` en runtime). Como el shell siempre se sirve desde la raíz del dominio, `'/'` es correcto en todo despliegue (ver `frontend/shell/rspack.config.ts`). |
 | Plataforma objetivo | Web responsiva (no PWA nativa) | Cumple el requisito "web y mobile" del PRD con menor superficie de mantenimiento para un equipo unipersonal. |
 | Canal de notificaciones | Email (canal inicial) | Cubre todos los eventos críticos del flujo. Push nativo requeriría Service Worker o app nativa — inviable para MVP unipersonal. El puerto de email permite agregar SMS/WhatsApp a futuro. |
 | Slicing de código — backend | Por dominio/feature (`usuarios/`, `inmuebles/`, `identidad/`, `arrendamiento/`, `riesgo/`, `pagos/`) | Mejora cohesión: todo lo relacionado a `pagos/` vive junto. Facilita crecimiento independiente de cada dominio. Reduce acoplamiento accidental entre features. |

@@ -29,8 +29,8 @@ the contract `backend-expert` must satisfy:
 import uuid
 
 import pytest
-from agencias.application.salir_de_agencia import SalirDeAgenciaCommand, salir_de_agencia
 
+from agencias.application.salir_de_agencia import SalirDeAgenciaCommand, salir_de_agencia
 from agencias.domain.exceptions import UltimoAgenteConRelacionesActivas
 from agencias.domain.relacion_agencia_propietario import RelacionAgenciaPropietario
 from tests.agencias.application.conftest import (

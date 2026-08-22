@@ -79,6 +79,21 @@ class InmuebleRepositoryPostgres:
         modelos = resultado.scalars().all()
         return [self._a_dominio(modelo) for modelo in modelos]
 
+    async def listar_por_propietarios(self, propietario_ids: list[UUID]) -> list[Inmueble]:
+        """Return every `Inmueble` owned by any of `propietario_ids` (empty list if
+        `propietario_ids` is empty or none match), per hu-002 design.md decisión 6.
+        """
+        if not propietario_ids:
+            return []
+        query = (
+            select(InmuebleORM)
+            .where(InmuebleORM.propietario_id.in_(propietario_ids))
+            .options(selectinload(InmuebleORM.fotos))
+        )
+        resultado = await self._session.execute(query)
+        modelos = resultado.scalars().all()
+        return [self._a_dominio(modelo) for modelo in modelos]
+
     @staticmethod
     def _a_orm(inmueble: Inmueble) -> InmuebleORM:
         """Map a domain `Inmueble` (plus its `fotos`) to a new `InmuebleORM`."""

@@ -91,6 +91,34 @@ class TestInmuebleCrear:
         assert inmueble.fotos == fotos
 
 
+class TestInmuebleCrearAgenteId:
+    """`agente_id` (hu-002, design.md decisión 4) is an optional creation-time
+    datum with no business validation attached — the domain only stores it,
+    since agencia<->propietario authorization is resolved before reaching
+    this factory (see `openspec/changes/hu-002/design.md`, Decisión 1)."""
+
+    def test_should_assign_agente_id_when_provided(self) -> None:
+        # Arrange
+        agente_id = uuid4()
+        kwargs = _valid_inmueble_kwargs(agente_id=agente_id)
+
+        # Act
+        inmueble = Inmueble.crear(**kwargs)
+
+        # Assert
+        assert inmueble.agente_id == agente_id
+
+    def test_should_default_agente_id_to_none_when_not_provided(self) -> None:
+        # Arrange
+        kwargs = _valid_inmueble_kwargs()
+
+        # Act
+        inmueble = Inmueble.crear(**kwargs)
+
+        # Assert
+        assert inmueble.agente_id is None
+
+
 class TestInmuebleCrearValorMensualValidation:
     def test_should_raise_domain_validation_error_when_valor_mensual_is_zero(self) -> None:
         # Arrange

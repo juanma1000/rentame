@@ -128,6 +128,47 @@ class TestEditarInmuebleWhenPropietarioDoesNotOwnIt:
         assert stored.direccion == original_direccion
 
 
+class TestEditarInmuebleDoesNotChangeAgenteId:
+    """Task 3.2 of `openspec/changes/hu-002/tasks.md` (design.md decisión 5):
+    `agente_id` is audit data set only at creation time — `editar_inmueble`
+    must never touch it, regardless of who performs the edit (the original
+    propietario, or any other authorized caller)."""
+
+    async def test_should_not_change_agente_id_when_editing_inmueble_published_by_an_agente(
+        self, fake_repository: FakeInmuebleRepository
+    ) -> None:
+        # Arrange
+        propietario_id = uuid4()
+        original_agente_id = uuid4()
+        existing = _build_existing_inmueble(propietario_id=propietario_id)
+        existing.agente_id = original_agente_id
+        existing = fake_repository.seed(existing)
+        assert existing.id is not None
+        command = _edit_command(inmueble_id=existing.id, propietario_id=propietario_id)
+
+        # Act
+        updated = await editar_inmueble(command, repository=fake_repository)
+
+        # Assert
+        assert updated.agente_id == original_agente_id
+
+    async def test_should_leave_agente_id_none_when_inmueble_was_never_published_by_an_agente(
+        self, fake_repository: FakeInmuebleRepository
+    ) -> None:
+        # Arrange
+        propietario_id = uuid4()
+        existing = fake_repository.seed(_build_existing_inmueble(propietario_id=propietario_id))
+        assert existing.id is not None
+        assert existing.agente_id is None
+        command = _edit_command(inmueble_id=existing.id, propietario_id=propietario_id)
+
+        # Act
+        updated = await editar_inmueble(command, repository=fake_repository)
+
+        # Assert
+        assert updated.agente_id is None
+
+
 class TestEditarInmuebleWhenDataViolatesInvariants:
     """Guards against the gap where `editar_inmueble` applied `command`'s
     fields to the `Inmueble` by direct assignment without re-validating the

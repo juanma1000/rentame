@@ -69,6 +69,18 @@ class FakeInmuebleRepository:
             if inmueble.propietario_id == propietario_id
         ]
 
+    async def listar_por_propietarios(self, propietario_ids: list[UUID]) -> list[Inmueble]:
+        """In-memory stand-in for the `hu-002` port method (design.md
+        decisión 6) backing `listar_inmuebles_gestionados`. Returns every
+        `Inmueble` whose `propietario_id` is in `propietario_ids` (empty list
+        when `propietario_ids` is empty, same as a real `WHERE ... IN ()`)."""
+        propietario_id_set = set(propietario_ids)
+        return [
+            inmueble
+            for inmueble in self._inmuebles.values()
+            if inmueble.propietario_id in propietario_id_set
+        ]
+
 
 @dataclass
 class FakeStoragePort:

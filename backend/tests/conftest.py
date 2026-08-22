@@ -52,3 +52,22 @@ async def seed_propietario(db_session: AsyncSession) -> UsuarioORM:
     db_session.add(usuario)
     await db_session.flush()
     return usuario
+
+
+@pytest_asyncio.fixture
+async def seed_agente(db_session: AsyncSession) -> UsuarioORM:
+    """Insert a test "agente" user into the test database and return it.
+
+    Used by the integration tests of the `agencias` domain (task 5.4 of
+    `openspec/changes/hu-007/tasks.md`), which need a real `usuario` row with
+    `rol="agente"` for `usuario.agencia_id` (task 5.2) and for
+    `UsuarioAgenciaRepositoryPort` (`agencias/domain/ports.py`) to reference.
+    """
+    usuario = UsuarioORM(
+        id=uuid.uuid4(),
+        email=f"agente-{uuid.uuid4()}@example.com",
+        rol="agente",
+    )
+    db_session.add(usuario)
+    await db_session.flush()
+    return usuario

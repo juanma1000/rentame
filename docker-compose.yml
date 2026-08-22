@@ -76,6 +76,13 @@ services:
       CORS_ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost:3001"]'
     ports:
       - "8000:8000"
+    # Dev-time bind mount: host source changes are picked up without
+    # rebuilding the image, so `docker compose exec backend pytest` always
+    # runs against the latest code. --reload also has uvicorn reflect edits
+    # on the running server without a manual restart.
+    volumes:
+      - ./backend:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   shell:
     build:

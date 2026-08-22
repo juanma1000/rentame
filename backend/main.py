@@ -15,6 +15,15 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from agencias.domain.exceptions import (
+    AgenteNoEsMiembroDeAgencia,
+    AgenteYaTieneAgencia,
+    RelacionNoEncontrada,
+    SolicitudNoEncontrada,
+    UltimoAgenteConRelacionesActivas,
+)
+from agencias.domain.exceptions import PropietarioInvalido as AgenciaPropietarioInvalido
+from agencias.infrastructure.api.router import router as agencias_router
 from inmuebles.domain.exceptions import InmuebleNoEncontrado, PropietarioInvalido
 from inmuebles.infrastructure.api.router import router as inmuebles_router
 from shared.domain.exceptions import DomainValidationError
@@ -46,6 +55,7 @@ app.add_middleware(
 )
 
 app.include_router(inmuebles_router)
+app.include_router(agencias_router)
 
 
 @app.exception_handler(DomainValidationError)
@@ -65,6 +75,48 @@ async def inmueble_no_encontrado_handler(
 @app.exception_handler(PropietarioInvalido)
 async def propietario_invalido_handler(request: Request, exc: PropietarioInvalido) -> JSONResponse:
     return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(AgenciaPropietarioInvalido)
+async def agencia_propietario_invalido_handler(
+    request: Request, exc: AgenciaPropietarioInvalido
+) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(AgenteYaTieneAgencia)
+async def agente_ya_tiene_agencia_handler(
+    request: Request, exc: AgenteYaTieneAgencia
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(SolicitudNoEncontrada)
+async def solicitud_no_encontrada_handler(
+    request: Request, exc: SolicitudNoEncontrada
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(RelacionNoEncontrada)
+async def relacion_no_encontrada_handler(
+    request: Request, exc: RelacionNoEncontrada
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(AgenteNoEsMiembroDeAgencia)
+async def agente_no_es_miembro_de_agencia_handler(
+    request: Request, exc: AgenteNoEsMiembroDeAgencia
+) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(UltimoAgenteConRelacionesActivas)
+async def ultimo_agente_con_relaciones_activas_handler(
+    request: Request, exc: UltimoAgenteConRelacionesActivas
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.get("/health")

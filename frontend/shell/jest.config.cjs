@@ -10,7 +10,8 @@ module.exports = {
   },
   // By default Jest skips all node_modules.  react-router v8 is pure ESM and
   // must be transformed to CJS for the jsdom test environment.
-  transformIgnorePatterns: ['/node_modules/(?!(react-router)/)'],
+  transformIgnorePatterns: ['/node_modules/(?!(react-router|cookie-es|set-cookie-parser)/)'],
+  setupFiles: ['<rootDir>/jest.setup-polyfills.cjs'],
   setupFilesAfterEnv: ['@testing-library/jest-dom'],
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.{ts,tsx}'],
   moduleNameMapper: {

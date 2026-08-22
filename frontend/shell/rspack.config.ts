@@ -6,9 +6,12 @@ const isDev = process.env['NODE_ENV'] !== 'production';
 const config: Configuration = {
   entry: './src/main.tsx',
   output: {
-    // 'auto' lets Rspack infer the public path from the request URL —
-    // works for both dev server and static deployments.
-    publicPath: 'auto',
+    // Absolute, not 'auto': nginx's SPA fallback serves index.html for
+    // every client-side route (e.g. /registro/agente), and 'auto' resolves
+    // the script src relative to that URL (-> /registro/main.js, 404 ->
+    // index.html served as JS -> "Unexpected token '<'"). Shell is always
+    // served from the domain root, so '/' is correct in every deployment.
+    publicPath: '/',
   },
   mode: isDev ? 'development' : 'production',
   devtool: isDev ? 'cheap-module-source-map' : false,
@@ -42,6 +45,11 @@ const config: Configuration = {
     },
   },
   plugins: [
+    new rspack.DefinePlugin({
+      'process.env.USUARIOS_API_URL': JSON.stringify(
+        process.env['USUARIOS_API_URL'] ?? 'http://localhost:8000',
+      ),
+    }),
     new rspack.HtmlRspackPlugin({
       template: './public/index.html',
     }),

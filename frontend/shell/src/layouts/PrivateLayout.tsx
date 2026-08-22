@@ -6,9 +6,8 @@ import { AuthGuard } from '@rentame/auth';
  * Layout wrapper for routes that require an active session.
  *
  * Uses AuthGuard from @rentame/auth to protect the nested route tree.
- * When no session is active the user is redirected to / (the dev-time
- * TokenLoginPage entry point — this will be replaced by a real login route
- * once the `usuarios` domain has a UI, out of scope for HU-001).
+ * When no session is active the user is redirected to / (EntradaPage, the
+ * shell's entry screen for visitors without an active session).
  *
  * Usage in the router:
  *   <Route element={<PrivateLayout />}>

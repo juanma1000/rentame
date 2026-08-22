@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { AuthProvider } from '@rentame/auth';
-import TokenLoginPage from './pages/TokenLoginPage';
+import EntradaPage from './pages/EntradaPage';
+import LoginPage from './pages/LoginPage';
+import RegistroPage from './pages/RegistroPage';
 import PrivateLayout from './layouts/PrivateLayout';
 import MisInmueblesPage from './pages/MisInmueblesPage';
 
@@ -13,25 +15,27 @@ import MisInmueblesPage from './pages/MisInmueblesPage';
  *
  * Route structure
  * ────────────────
- *  /               → TokenLoginPage (dev-time JWT entry point; replaced by a
- *                    real login flow when the `usuarios` domain has a UI)
- *  /mis-inmuebles  → PrivateLayout → MisInmueblesPage (placeholder; the
- *                    inmuebles-app remote is mounted here from task 16+)
- *  *               → 404 fallback
+ *  /                     → EntradaPage (pantalla de entrada simétrica por rol)
+ *  /login                → LoginPage
+ *  /registro/propietario → RegistroPage rol="propietario"
+ *  /registro/agente      → RegistroPage rol="agente"
+ *  /registro/inquilino   → RegistroPage rol="inquilino"
+ *  /mis-inmuebles        → PrivateLayout → MisInmueblesPage (placeholder; the
+ *                          inmuebles-app remote is mounted here from task 16+)
+ *  *                     → 404 fallback
  *
  * PrivateLayout uses AuthGuard with fallback={<Navigate to="/" replace />}.
- * Unauthenticated visits to any /mis-* route redirect to the login entry.
+ * Unauthenticated visits to any /mis-* route redirect to the entry screen.
  */
 const App: React.FC = () => (
   <AuthProvider>
     <BrowserRouter>
       <Routes>
-        {/*
-         * DEV ONLY: TokenLoginPage lets the developer paste a JWT manually to
-         * initialise a session without a real login UI.  Replaced by a real
-         * auth flow once the `usuarios` domain has a UI (out of scope HU-001).
-         */}
-        <Route path="/" element={<TokenLoginPage />} />
+        <Route path="/" element={<EntradaPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/registro/propietario" element={<RegistroPage rol="propietario" />} />
+        <Route path="/registro/agente" element={<RegistroPage rol="agente" />} />
+        <Route path="/registro/inquilino" element={<RegistroPage rol="inquilino" />} />
 
         {/* Protected routes — require an active session via PrivateLayout */}
         <Route element={<PrivateLayout />}>

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useCallback } from 'react';
 import type { AuthSession, JwtPayload, Role } from './auth.types';
-import { getSession, storeSession, clearSession } from './session';
+import { getSession, storeSession, clearSession, decodeTokenPayload } from './session';
 
 export interface AuthContextValue {
   session: AuthSession | null;
@@ -33,7 +33,16 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
   const login = useCallback((token: string) => {
     storeSession(token);
-    setSession(getSession());
+    // Build the reactive state directly from the token we were just handed,
+    // rather than round-tripping through `getSession()` — that helper
+    // deliberately calls `clearSession()` when a *persisted* token fails to
+    // decode (protecting the app on next load from stale/corrupted storage),
+    // which would otherwise immediately wipe the token this very call just
+    // stored. `login()` only ever receives a token from a caller that just
+    // obtained it from the backend, so re-validating it against storage
+    // here is unnecessary and actively wrong.
+    const payload = decodeTokenPayload(token);
+    setSession(payload ? { token, payload } : null);
   }, []);
 
   const logout = useCallback(() => {

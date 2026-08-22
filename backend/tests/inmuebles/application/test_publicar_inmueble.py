@@ -101,6 +101,46 @@ class TestPublicarInmuebleSuccess:
         )
 
 
+class TestPublicarInmuebleWithAgente:
+    """Task 3.1 of `openspec/changes/hu-002/tasks.md`: `agente_id` is an
+    optional field on `PublicarInmuebleCommand` (design.md decisión 2/4) —
+    when the caller is an agente publishing on behalf of a propietario, the
+    resulting `Inmueble` must carry that `agente_id`."""
+
+    async def test_should_assign_agente_id_to_created_inmueble_when_command_has_it(
+        self,
+        fake_repository: FakeInmuebleRepository,
+        fake_storage: FakeStoragePort,
+    ) -> None:
+        # Arrange
+        agente_id = uuid4()
+        command = _valid_command(agente_id=agente_id)
+
+        # Act
+        inmueble = await publicar_inmueble(
+            command, repository=fake_repository, storage=fake_storage
+        )
+
+        # Assert
+        assert inmueble.agente_id == agente_id
+
+    async def test_should_leave_agente_id_none_when_command_does_not_provide_it(
+        self,
+        fake_repository: FakeInmuebleRepository,
+        fake_storage: FakeStoragePort,
+    ) -> None:
+        # Arrange
+        command = _valid_command()
+
+        # Act
+        inmueble = await publicar_inmueble(
+            command, repository=fake_repository, storage=fake_storage
+        )
+
+        # Assert
+        assert inmueble.agente_id is None
+
+
 class TestPublicarInmuebleValidationFailures:
     async def test_should_propagate_domain_validation_error_when_valor_mensual_is_invalid(
         self,

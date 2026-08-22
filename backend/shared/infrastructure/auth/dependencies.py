@@ -17,6 +17,7 @@ from shared.infrastructure.auth.jwt_handler import (
 
 ROL_PROPIETARIO = "propietario"
 ROL_AGENTE = "agente"
+ROLES_PUBLICADOR = (ROL_PROPIETARIO, ROL_AGENTE)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -75,6 +76,39 @@ async def get_current_agente(
         ) from error
 
     if payload.rol != ROL_AGENTE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User role is not authorized to perform this operation",
+        )
+
+    return payload
+
+
+async def get_current_publicador(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> TokenPayload:
+    """Extract and validate the JWT from the Authorization header.
+
+    Raises 401 when the token is missing, invalid/expired, or belongs to a
+    user whose role is neither "propietario" nor "agente" (hu-002,
+    design.md decisión 2: the router needs both identity and role to decide
+    the publishing flow).
+    """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+        )
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except InvalidTokenError as error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(error),
+        ) from error
+
+    if payload.rol not in ROLES_PUBLICADOR:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User role is not authorized to perform this operation",

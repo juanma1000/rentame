@@ -22,7 +22,6 @@ the contract `backend-expert` must satisfy:
 import uuid
 
 from agencias.application.iniciar_relacion import IniciarRelacionCommand, iniciar_relacion
-
 from agencias.domain.relacion_agencia_propietario import EstadoRelacion
 from tests.agencias.application.conftest import FakeRelacionRepository
 

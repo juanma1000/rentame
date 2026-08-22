@@ -30,8 +30,8 @@ the contract `backend-expert` must satisfy:
 import uuid
 
 import pytest
-from agencias.application.aprobar_ingreso import AprobarIngresoCommand, aprobar_ingreso
 
+from agencias.application.aprobar_ingreso import AprobarIngresoCommand, aprobar_ingreso
 from agencias.domain.exceptions import AgenteNoEsMiembroDeAgencia
 from agencias.domain.solicitud_ingreso import EstadoSolicitudIngreso, SolicitudIngreso
 from tests.agencias.application.conftest import (

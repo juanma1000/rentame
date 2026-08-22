@@ -15,6 +15,11 @@ HTTP).
 `InmuebleResponse` so they serialize as JSON numbers: Pydantic v2 serializes
 `Decimal` fields to JSON *strings* by default, which would break
 `test_api.py`'s `response_body["valor_mensual"] == 1500000` (str != int).
+
+`InmuebleResponse.agente_id` (hu-002) is `None` for propietario-published
+listings and the calling agente's id for agente-published/managed ones —
+exposed on every endpoint's response body (`POST`, `PUT`,
+`PATCH /disponibilidad`, `GET /mios`, `GET /gestionados`).
 """
 
 from __future__ import annotations
@@ -53,6 +58,7 @@ class InmuebleResponse(BaseModel):
 
     id: uuid.UUID
     propietario_id: uuid.UUID
+    agente_id: uuid.UUID | None
     direccion: str
     barrio: str
     ciudad: str
@@ -72,6 +78,7 @@ class InmuebleResponse(BaseModel):
         return cls(
             id=inmueble.id,
             propietario_id=inmueble.propietario_id,
+            agente_id=inmueble.agente_id,
             direccion=inmueble.direccion,
             barrio=inmueble.barrio,
             ciudad=inmueble.ciudad,

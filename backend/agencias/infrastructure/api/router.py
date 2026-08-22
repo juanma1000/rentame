@@ -26,6 +26,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agencias.application.aprobar_ingreso import AprobarIngresoCommand, aprobar_ingreso
@@ -56,6 +57,7 @@ from inmuebles.infrastructure.persistence.repository import InmuebleRepositoryPo
 from shared.infrastructure.auth.dependencies import get_current_agente, get_current_propietario
 from shared.infrastructure.auth.jwt_handler import TokenPayload
 from shared.infrastructure.database import get_db_session
+from usuarios.infrastructure.persistence.models import UsuarioORM
 
 router = APIRouter(prefix="/agencias", tags=["agencias"])
 
@@ -297,13 +299,34 @@ async def listar_mis_propietarios_endpoint(
     current_agente: CurrentAgente,
     relacion_repository: RelacionRepository,
     usuario_repository: UsuarioAgenciaRepository,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> list[RelacionResponse]:
     """`GET /agencias/mia/propietarios` — every relación of the authenticated
     agente's agencia (empty list when the agencia has none, or the agente
-    belongs to no agencia)."""
+    belongs to no agencia).
+
+    Each item's `propietario_email` (hu-002 task 6.5) is resolved here from
+    `usuario.email` so the frontend can render a readable propietario
+    selector when publishing an inmueble on their behalf (task 11.x) —
+    `agencias/application` and `agencias/domain` are not touched for this,
+    only this API-layer response schema/endpoint."""
     agencia_id = await usuario_repository.obtener_agencia_id(uuid.UUID(current_agente.sub))
     if agencia_id is None:
         return []
 
     relaciones = await relacion_repository.listar_por_agencia(agencia_id)
-    return [RelacionResponse.from_domain(relacion) for relacion in relaciones]
+    if not relaciones:
+        return []
+
+    propietario_ids = [relacion.propietario_id for relacion in relaciones]
+    resultado = await session.execute(
+        select(UsuarioORM.id, UsuarioORM.email).where(UsuarioORM.id.in_(propietario_ids))
+    )
+    emails_por_id = {fila.id: fila.email for fila in resultado}
+
+    return [
+        RelacionResponse.from_domain(
+            relacion, propietario_email=emails_por_id.get(relacion.propietario_id)
+        )
+        for relacion in relaciones
+    ]

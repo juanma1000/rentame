@@ -43,6 +43,12 @@ class InmuebleRepositoryPort(Protocol):
         """Return every `Inmueble` owned by `propietario_id` (empty list if none)."""
         ...
 
+    async def listar_por_propietarios(self, propietario_ids: list[UUID]) -> list[Inmueble]:
+        """Return every `Inmueble` owned by any of `propietario_ids` (empty list if
+        `propietario_ids` is empty or none match), per hu-002 design.md decisión 6.
+        """
+        ...
+
 
 class StoragePort(Protocol):
     """Object storage contract (S3/MinIO) used to persist inmueble photos.

@@ -25,8 +25,8 @@ the contract `backend-expert` must satisfy:
 import uuid
 
 import pytest
-from agencias.application.crear_agencia import CrearAgenciaCommand, crear_agencia
 
+from agencias.application.crear_agencia import CrearAgenciaCommand, crear_agencia
 from agencias.domain.exceptions import AgenteYaTieneAgencia
 from tests.agencias.application.conftest import (
     FakeAgenciaRepository,

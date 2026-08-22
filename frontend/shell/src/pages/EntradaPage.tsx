@@ -14,7 +14,8 @@ import { Link } from 'react-router';
 const EntradaPage: React.FC = () => (
   <div style={containerStyle}>
     <h1>Rentame</h1>
-    <p style={{ color: '#555' }}>¿Qué quieres hacer?</p>
+    {/* text-secondary sobre fondo blanco por defecto (sin --color-background explícito) — cumple el mínimo de contraste del README */}
+    <p style={{ color: 'var(--color-text-secondary)' }}>¿Qué quieres hacer?</p>
 
     <div style={optionsStyle}>
       <Link to="/registro/propietario" style={optionLinkStyle}>
@@ -52,8 +53,8 @@ const optionsStyle: React.CSSProperties = {
 const optionLinkStyle: React.CSSProperties = {
   display: 'block',
   padding: '1rem',
-  border: '1px solid #ccc',
-  borderRadius: '8px',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-card)',
   textDecoration: 'none',
   color: 'inherit',
   fontWeight: 600,

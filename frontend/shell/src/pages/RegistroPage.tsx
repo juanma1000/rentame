@@ -282,7 +282,7 @@ const fieldStyle: React.CSSProperties = {
 };
 
 const alertStyle: React.CSSProperties = {
-  color: '#c0392b',
+  color: 'var(--color-error)',
   marginBottom: '0.75rem',
 };
 
@@ -292,7 +292,7 @@ const agenciaResultStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: '1rem',
   padding: '0.5rem 0',
-  borderBottom: '1px solid #eee',
+  borderBottom: '1px solid var(--color-border)',
 };
 
 export default RegistroPage;

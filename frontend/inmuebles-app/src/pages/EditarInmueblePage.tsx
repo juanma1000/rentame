@@ -316,7 +316,7 @@ const buttonStyle: React.CSSProperties = {
 };
 
 const errorStyle: React.CSSProperties = {
-  color: '#c0392b',
+  color: 'var(--color-error)',
   marginBottom: '0.75rem',
 };
 
@@ -324,7 +324,7 @@ const backButtonStyle: React.CSSProperties = {
   padding: '0.35rem 0.85rem',
   cursor: 'pointer',
   borderRadius: '4px',
-  border: '1px solid #ccc',
+  border: '1px solid var(--color-border)',
   marginBottom: '1rem',
   background: 'none',
 };

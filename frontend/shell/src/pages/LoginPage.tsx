@@ -92,7 +92,7 @@ const fieldStyle: React.CSSProperties = {
 };
 
 const alertStyle: React.CSSProperties = {
-  color: '#c0392b',
+  color: 'var(--color-error)',
   marginBottom: '0.75rem',
 };
 

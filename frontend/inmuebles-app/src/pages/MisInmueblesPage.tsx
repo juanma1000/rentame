@@ -208,8 +208,8 @@ const listStyle: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  border: '1px solid #ddd',
-  borderRadius: '6px',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-card)',
   padding: '1rem',
   display: 'flex',
   flexDirection: 'column',
@@ -221,13 +221,25 @@ const direccionStyle: React.CSSProperties = {
   fontSize: '1rem',
 };
 
+// disponible/no_disponible mapean 1:1 a los tokens semánticos success/error —
+// fondo suave vía color-mix() sobre --color-surface (recomendado en el README
+// del paquete de tokens) con el texto en el color sólido para mantener el
+// contraste. "oculto" y el fallback no tienen token equivalente (no existe un
+// token de warning/neutral en el paquete) — se mantienen como hex literal.
 const BADGE_COLORS: Record<string, React.CSSProperties> = {
-  disponible: { backgroundColor: '#d4edda', color: '#155724' },
-  no_disponible: { backgroundColor: '#f8d7da', color: '#721c24' },
+  disponible: {
+    backgroundColor: 'color-mix(in srgb, var(--color-success) 18%, var(--color-surface))',
+    color: 'var(--color-success)',
+  },
+  no_disponible: {
+    backgroundColor: 'color-mix(in srgb, var(--color-error) 18%, var(--color-surface))',
+    color: 'var(--color-error)',
+  },
   oculto: { backgroundColor: '#fff3cd', color: '#856404' },
 };
 
 function badgeStyle(estado: string): React.CSSProperties {
+  // Estado desconocido/no mapeado: gris neutro sin token equivalente, se deja hardcoded.
   const colors = BADGE_COLORS[estado] ?? { backgroundColor: '#e2e3e5', color: '#383d41' };
   return {
     display: 'inline-block',
@@ -250,16 +262,16 @@ const buttonStyle: React.CSSProperties = {
   padding: '0.4rem 0.9rem',
   cursor: 'pointer',
   borderRadius: '4px',
-  border: '1px solid #ccc',
+  border: '1px solid var(--color-border)',
 };
 
 const primaryButtonStyle: React.CSSProperties = {
   padding: '0.5rem 1.25rem',
   cursor: 'pointer',
   borderRadius: '4px',
-  border: '1px solid #0056b3',
-  backgroundColor: '#007bff',
-  color: '#fff',
+  border: '1px solid var(--color-primary)',
+  backgroundColor: 'var(--color-primary)',
+  color: 'var(--color-surface)',
   marginBottom: '1rem',
 };
 

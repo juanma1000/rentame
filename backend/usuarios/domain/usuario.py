@@ -46,5 +46,14 @@ class Usuario:
         return cls(email=email, password_hash=password_hash, nombre=nombre, rol=rol)
 
     def verificar_password(self, password: str) -> bool:
-        """Return `True` when `password` matches this account's stored hash."""
-        return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
+        """Return `True` when `password` matches this account's stored hash.
+
+        Returns `False` (never raises) when `password_hash` is empty or not a
+        well-formed bcrypt hash — e.g. accounts created directly in the
+        database before this domain existed — so a login attempt against
+        them fails like a wrong password instead of crashing with a 500.
+        """
+        try:
+            return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
+        except ValueError:
+            return False

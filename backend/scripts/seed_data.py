@@ -47,9 +47,11 @@ from inmuebles.infrastructure.persistence.repository import InmuebleRepositoryPo
 from shared.infrastructure.auth.jwt_handler import create_access_token
 from shared.infrastructure.database import AsyncSessionLocal
 from shared.infrastructure.settings import get_settings
+from usuarios.domain.usuario import Usuario
 from usuarios.infrastructure.persistence.models import UsuarioORM
 
 SEED_EMAIL_SUFFIX = "@seed.rentame.test"
+SEED_PASSWORD = "Seed1234!"
 
 
 def _png_placeholder(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
@@ -159,7 +161,18 @@ async def seed() -> None:
         usuario_repo_ids: dict[str, uuid.UUID] = {}
 
         def _nuevo_usuario(email_local: str, rol: str) -> UsuarioORM:
-            modelo = UsuarioORM(email=f"{email_local}{SEED_EMAIL_SUFFIX}", rol=rol)
+            usuario = Usuario.crear(
+                email=f"{email_local}{SEED_EMAIL_SUFFIX}",
+                password=SEED_PASSWORD,
+                nombre=email_local.replace(".", " ").title(),
+                rol=rol,
+            )
+            modelo = UsuarioORM(
+                email=usuario.email,
+                password_hash=usuario.password_hash,
+                nombre=usuario.nombre,
+                rol=usuario.rol,
+            )
             session.add(modelo)
             return modelo
 
@@ -303,7 +316,7 @@ async def seed() -> None:
 
         await session.commit()
 
-    print("Seed completado. Usuarios y JWT de prueba (60 min de expiración):\n")
+    print(f"Seed completado. Contraseña de todos los usuarios de prueba: {SEED_PASSWORD}\n")
     for usuario in (ana, carlos, laura, pedro, sofia, diego):
         token = create_access_token(str(usuario.id), usuario.rol)
         print(f"- {usuario.email} [{usuario.rol}] id={usuario.id}")

@@ -112,3 +112,15 @@ class TestUsuarioVerificarPassword:
 
         # Assert
         assert resultado is False
+
+    def test_should_return_false_instead_of_raising_when_password_hash_is_empty(self) -> None:
+        # Arrange: accounts created directly in the database before this
+        # domain existed (e.g. the seed script's original rows) have an
+        # empty password_hash, which is not a well-formed bcrypt hash.
+        usuario = Usuario(email="legacy@example.com", password_hash="", nombre="", rol="propietario")
+
+        # Act
+        resultado = usuario.verificar_password("cualquier-cosa")
+
+        # Assert
+        assert resultado is False

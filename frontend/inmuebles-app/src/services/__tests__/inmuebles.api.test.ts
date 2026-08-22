@@ -33,6 +33,7 @@ import {
   cambiarDisponibilidad,
   editarInmueble,
   InmueblesApiError,
+  listarInmueblesGestionados,
   listarMisInmuebles,
   publicarInmueble,
 } from '../inmuebles.api';
@@ -597,5 +598,90 @@ describe('inmuebles.api — cambiarDisponibilidad (contract, Red)', () => {
     await expect(
       cambiarDisponibilidad('inmueble-inexistente', 'oculto', token),
     ).rejects.toThrow(InmueblesApiError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 12 (Red) — contract test for `listarInmueblesGestionados`.
+//
+// Fixes the contract of `listarInmueblesGestionados(token)` BEFORE the
+// implementation exists (TDD Red phase), per the "Listado de inmuebles
+// gestionados por agencia" requirement in
+// `openspec/changes/hu-002/specs/inmuebles/spec.md` and
+// `backend/inmuebles/infrastructure/api/router.py`
+// (`listar_inmuebles_gestionados_endpoint`, `GET /inmuebles/gestionados`,
+// agente-only, resolved from `feature/hu-002-backend`).
+//
+// Contract — `listarInmueblesGestionados(token)`:
+//   - Sends a `GET` request to `.../inmuebles/gestionados` (native `fetch`,
+//     same client and mapping pattern as `listarMisInmuebles`).
+//   - Sets `Authorization: Bearer <token>`. No request body.
+//   - On a successful (2xx) response, resolves with the parsed JSON array of
+//     `Inmueble`, mapped from the backend's snake_case `InmuebleResponse`
+//     shape via the same `mapInmuebleFromApi` used by every other listing
+//     function (empty array when the agente's agencia manages no
+//     inmuebles).
+//   - On a non-2xx response, throws the same typed `InmueblesApiError` as
+//     the other functions (`.message` = backend's `detail`, `.status` = HTTP
+//     status code).
+//
+// `listarInmueblesGestionados` does not exist yet in `../inmuebles.api` —
+// every test below is expected to fail on import
+// (`Cannot find name 'listarInmueblesGestionados'` at compile time, or
+// `TypeError: ... is not a function` at runtime), the genuine Red failure
+// for this phase. No implementation is written here.
+// ---------------------------------------------------------------------------
+
+describe('inmuebles.api — listarInmueblesGestionados (contract, Red)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('sends a GET request to .../inmuebles/gestionados with the Authorization bearer header', async () => {
+    mockFetchResolvedOnce([rawInmuebleDisponible, rawInmuebleOculto], 200);
+
+    await listarInmueblesGestionados(token);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, requestInit] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit | undefined,
+    ];
+
+    expect(url).toEqual(expect.stringMatching(/\/inmuebles\/gestionados$/));
+    expect(requestInit?.method).toBe('GET');
+    const headers = requestInit?.headers as Record<string, string>;
+    expect(headers['Authorization']).toBe(`Bearer ${token}`);
+  });
+
+  it('resolves with the array of inmuebles parsed from a successful (200) response', async () => {
+    mockFetchResolvedOnce([rawInmuebleDisponible, rawInmuebleOculto], 200);
+
+    const result = await listarInmueblesGestionados(token);
+
+    expect(result).toEqual([inmuebleDisponible, inmuebleOculto]);
+  });
+
+  it('resolves with an empty array when the agente\'s agencia manages no inmuebles', async () => {
+    mockFetchResolvedOnce([], 200);
+
+    const result = await listarInmueblesGestionados(token);
+
+    expect(result).toEqual([]);
+  });
+
+  it('throws a typed InmueblesApiError with the backend detail message on a failed response', async () => {
+    mockFetchResolvedOnce({ detail: 'No autorizado.' }, 401);
+
+    let caught: unknown;
+    try {
+      await listarInmueblesGestionados(token);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(InmueblesApiError);
+    expect((caught as InmueblesApiError).message).toBe('No autorizado.');
+    expect((caught as InmueblesApiError).status).toBe(401);
   });
 });

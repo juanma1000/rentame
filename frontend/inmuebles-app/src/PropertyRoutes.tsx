@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useAuth } from '@rentame/auth';
 import MisInmueblesPage from './pages/MisInmueblesPage';
+import InmueblesGestionadosPage from './pages/InmueblesGestionadosPage';
 import PublicarInmueblePage from './pages/PublicarInmueblePage';
 import EditarInmueblePage from './pages/EditarInmueblePage';
 import type { Inmueble } from './services/inmuebles.api';
@@ -38,6 +40,7 @@ type View =
 // ---------------------------------------------------------------------------
 
 const PropertyRoutes: React.FC = () => {
+  const { role } = useAuth();
   const [view, setView] = useState<View>({ kind: 'lista', refreshKey: 0 });
 
   // ── Transitions ──────────────────────────────────────────────────────────
@@ -63,8 +66,16 @@ const PropertyRoutes: React.FC = () => {
 
   return (
     <div data-testid="inmuebles-routes">
-      {view.kind === 'lista' && (
+      {view.kind === 'lista' && role === 'propietario' && (
         <MisInmueblesPage
+          key={view.refreshKey}
+          onPublicar={goToPublicar}
+          onEditar={goToEditar}
+        />
+      )}
+
+      {view.kind === 'lista' && role === 'agente' && (
+        <InmueblesGestionadosPage
           key={view.refreshKey}
           onPublicar={goToPublicar}
           onEditar={goToEditar}

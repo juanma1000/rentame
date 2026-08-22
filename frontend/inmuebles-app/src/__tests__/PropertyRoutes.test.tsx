@@ -28,6 +28,7 @@ import type { Inmueble } from '../services/inmuebles.api';
 // ---------------------------------------------------------------------------
 
 const mockListarMisInmuebles = jest.fn();
+const mockListarInmueblesGestionados = jest.fn();
 const mockPublicarInmueble = jest.fn();
 const mockEditarInmueble = jest.fn();
 const mockCambiarDisponibilidad = jest.fn();
@@ -45,6 +46,7 @@ jest.mock(
   '../services/inmuebles.api',
   () => ({
     listarMisInmuebles: (...args: unknown[]) => mockListarMisInmuebles(...args),
+    listarInmueblesGestionados: (...args: unknown[]) => mockListarInmueblesGestionados(...args),
     publicarInmueble: (...args: unknown[]) => mockPublicarInmueble(...args),
     editarInmueble: (...args: unknown[]) => mockEditarInmueble(...args),
     cambiarDisponibilidad: (...args: unknown[]) => mockCambiarDisponibilidad(...args),
@@ -71,6 +73,7 @@ function makeToken(payload: Record<string, unknown>): string {
 }
 
 const TEST_TOKEN = makeToken({ sub: 'propietario-1', rol: 'propietario', exp: 9_999_999_999 });
+const AGENTE_TOKEN = makeToken({ sub: 'agente-1', rol: 'agente', exp: 9_999_999_999 });
 
 const INMUEBLE_FIXTURE: Inmueble = {
   id: 'inmueble-uuid-1',
@@ -103,6 +106,7 @@ describe('PropertyRoutes (task 16 — state-machine navigation)', () => {
   beforeEach(() => {
     localStorage.clear();
     mockListarMisInmuebles.mockReset();
+    mockListarInmueblesGestionados.mockReset();
     mockPublicarInmueble.mockReset();
     mockEditarInmueble.mockReset();
     mockCambiarDisponibilidad.mockReset();
@@ -202,5 +206,53 @@ describe('PropertyRoutes (task 16 — state-machine navigation)', () => {
     // EditarInmueblePage pre-fills every field from the prop inmueble.
     // Verify at least the direction field matches the fixture.
     expect(screen.getByLabelText(/dirección/i)).toHaveValue(INMUEBLE_FIXTURE.direccion);
+  });
+
+  // ── Agente path ───────────────────────────────────────────────────────────
+
+  describe('agente role — mounts InmueblesGestionadosPage as the lista view', () => {
+    function renderRoutesAsAgente() {
+      localStorage.setItem('rentame_auth_token', AGENTE_TOKEN);
+      return render(
+        <AuthProvider>
+          <PropertyRoutes />
+        </AuthProvider>,
+      );
+    }
+
+    it('shows InmueblesGestionadosPage (lista view) for agente role', async () => {
+      mockListarInmueblesGestionados.mockResolvedValueOnce([INMUEBLE_FIXTURE]);
+      renderRoutesAsAgente();
+      expect(
+        await screen.findByRole('heading', { name: /inmuebles que gestiono/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('does not mount MisInmueblesPage for agente role', async () => {
+      mockListarInmueblesGestionados.mockResolvedValueOnce([]);
+      renderRoutesAsAgente();
+      // Wait for the agente view to settle
+      await screen.findByText(/no gestion[aá]s (ning[uú]n )?inmueble|no hay inmuebles/i);
+      expect(screen.queryByRole('heading', { name: /mis inmuebles/i })).not.toBeInTheDocument();
+    });
+
+    it('navigates to PublicarInmueblePage when "Publicar nuevo inmueble" is clicked (agente)', async () => {
+      mockListarInmueblesGestionados.mockResolvedValueOnce([]);
+      renderRoutesAsAgente();
+
+      fireEvent.click(await screen.findByRole('button', { name: /publicar nuevo inmueble/i }));
+
+      expect(screen.getByRole('heading', { name: /publicar inmueble/i })).toBeInTheDocument();
+    });
+
+    it('navigates to EditarInmueblePage when "Editar" is clicked on a card (agente)', async () => {
+      mockListarInmueblesGestionados.mockResolvedValueOnce([INMUEBLE_FIXTURE]);
+      renderRoutesAsAgente();
+
+      await screen.findByText(INMUEBLE_FIXTURE.direccion);
+      fireEvent.click(screen.getByRole('button', { name: /^editar$/i }));
+
+      expect(screen.getByRole('heading', { name: /editar inmueble/i })).toBeInTheDocument();
+    });
   });
 });

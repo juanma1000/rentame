@@ -47,6 +47,24 @@ class AgenciaResponse(BaseModel):
         return cls(id=agencia.id, razon_social=agencia.razon_social, nit=agencia.nit)
 
 
+class AgenciaBuscarResponse(BaseModel):
+    """Response body item returned by `GET /agencias/buscar` — public endpoint,
+    so only the fields already exposed by `AgenciaResponse` are included
+    (no `Agencia` field is actually sensitive today, but this schema is kept
+    separate so a future non-public field added to `Agencia` never leaks here
+    by accident)."""
+
+    id: uuid.UUID
+    razon_social: str
+    nit: str
+
+    @classmethod
+    def from_domain(cls, agencia: Agencia) -> AgenciaBuscarResponse:
+        if agencia.id is None:
+            raise ValueError("cannot build AgenciaBuscarResponse from an Agencia without an id")
+        return cls(id=agencia.id, razon_social=agencia.razon_social, nit=agencia.nit)
+
+
 class SolicitudIngresoResponse(BaseModel):
     """Response body shared by `POST /agencias/{id}/solicitudes` and
     `POST /agencias/solicitudes/{id}/aprobar`."""

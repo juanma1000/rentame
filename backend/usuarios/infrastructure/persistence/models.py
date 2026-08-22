@@ -1,14 +1,10 @@
-"""Minimal `usuario` persistence model.
+"""`usuario` persistence model.
 
-This is intentionally NOT the full `usuarios` domain from
-`docs/architecture/architecture.md` (no password hash, name, phone, active
-flag, etc.) — registration/login is out of scope for every HU in the current
-backlog (HU-001 to HU-006). This model exists only so `inmuebles.propietario_id`
-has a real FK target and so JWTs issued in tests reference a real row.
-
-A future auth HU will own the full `usuario` entity/domain/use cases; at that
-point this ORM model should move under a proper `usuarios/domain/` +
-`usuarios/application/` split instead of living infrastructure-only.
+`password_hash` and `nombre` were added in HU-008 (registro/login real) as
+`nullable=True` per `openspec/changes/hu-008/design.md` decisión 6, to avoid
+breaking rows inserted manually in earlier development sessions (HU-001 to
+HU-007) that predate this column. New rows created by `registrar_usuario`
+always populate both.
 
 `agencia_id` (task 5.2 of `openspec/changes/hu-007/tasks.md`) is the
 membership pointer for agente users, per `design.md` decisión 2: a nullable
@@ -35,6 +31,8 @@ class UsuarioORM(Base):
         postgresql.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    nombre: Mapped[str | None] = mapped_column(String(255), nullable=True)
     rol: Mapped[str] = mapped_column(String(20), nullable=False)
     agencia_id: Mapped[uuid.UUID | None] = mapped_column(
         postgresql.UUID(as_uuid=True), ForeignKey("agencia.id"), nullable=True

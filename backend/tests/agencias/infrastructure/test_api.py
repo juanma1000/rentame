@@ -880,3 +880,51 @@ class TestGetMiaPropietarios:
         # Assert
         assert response.status_code == 200
         assert response.json() == []
+
+
+# ---------------------------------------------------------------------------
+# GET /agencias/buscar
+# ---------------------------------------------------------------------------
+
+
+class TestGetAgenciasBuscar:
+    """Covers tasks 5.5/5.6 of `openspec/changes/hu-008/tasks.md` and
+    `openspec/changes/hu-008/specs/agencias/spec.md`'s "Búsqueda pública de
+    agencias" requirement: `GET /agencias/buscar?q=<texto>`, public (no
+    `Authorization` header sent by any test below), returning only public
+    fields (`id`, `razon_social`, `nit`) — never anything else, even if the
+    response schema were ever extended with a sensitive field by mistake.
+
+    TDD Red phase: the route does not exist yet — every request below is
+    expected to fail with FastAPI's default 404 (no matching route).
+    """
+
+    async def test_should_return_200_and_find_agencia_by_razon_social_without_auth(
+        self, client: httpx.AsyncClient, db_session: AsyncSession
+    ) -> None:
+        # Arrange
+        agencia = await _seed_agencia(db_session)
+
+        # Act: deliberately no Authorization header.
+        response = await client.get("/agencias/buscar", params={"q": "Agencia Test"})
+
+        # Assert
+        assert response.status_code == 200
+        body = response.json()
+        assert any(item["id"] == str(agencia.id) for item in body)
+        encontrada = next(item for item in body if item["id"] == str(agencia.id))
+        assert encontrada["razon_social"] == agencia.razon_social
+        assert encontrada["nit"] == agencia.nit
+        assert set(encontrada.keys()) == {"id", "razon_social", "nit"}
+
+    async def test_should_return_200_with_empty_list_when_no_match(
+        self, client: httpx.AsyncClient
+    ) -> None:
+        # Act
+        response = await client.get(
+            "/agencias/buscar", params={"q": "texto-que-no-coincide-con-nada-existente"}
+        )
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json() == []

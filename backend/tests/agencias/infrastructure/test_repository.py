@@ -476,3 +476,49 @@ class TestUsuarioAgenciaRepositoryPostgres:
 
         # Assert
         assert resultado == []
+
+
+class TestAgenciaRepositoryPostgresBuscar:
+    """Covers task 5.3 of `openspec/changes/hu-008/tasks.md`: `buscar(texto)`
+    on `AgenciaRepositoryPostgres`, per `openspec/changes/hu-008/design.md`
+    decisión 4 (case-insensitive substring match over `razon_social`/`nit`,
+    e.g. `ILIKE '%<texto>%'`).
+
+    TDD Red phase: `AgenciaRepositoryPostgres` has no `buscar` method yet —
+    every test below is expected to fail with `AttributeError`.
+    """
+
+    async def test_should_find_agencia_by_partial_razon_social_case_insensitive(
+        self, db_session: AsyncSession
+    ) -> None:
+        # Arrange
+        agencia = await _seed_agencia(db_session, razon_social="Inmobiliaria del Valle Real S.A.S.")
+        repository = AgenciaRepositoryPostgres(db_session)
+
+        # Act
+        resultado = await repository.buscar("valle real")
+
+        # Assert
+        assert any(encontrada.id == agencia.id for encontrada in resultado)
+
+    async def test_should_find_agencia_by_partial_nit(self, db_session: AsyncSession) -> None:
+        # Arrange
+        agencia = await _seed_agencia(db_session, nit="900555555-1")
+        repository = AgenciaRepositoryPostgres(db_session)
+
+        # Act
+        resultado = await repository.buscar("900555555")
+
+        # Assert
+        assert any(encontrada.id == agencia.id for encontrada in resultado)
+
+    async def test_should_return_empty_list_when_no_match(self, db_session: AsyncSession) -> None:
+        # Arrange
+        await _seed_agencia(db_session, razon_social="Inmobiliaria Cualquiera")
+        repository = AgenciaRepositoryPostgres(db_session)
+
+        # Act
+        resultado = await repository.buscar("texto-que-no-coincide-con-nada-existente")
+
+        # Assert
+        assert resultado == []

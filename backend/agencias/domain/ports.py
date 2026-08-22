@@ -41,6 +41,11 @@ class AgenciaRepositoryPort(Protocol):
         """Return the `Agencia` matching `agencia_id`, or `None` if it does not exist."""
         ...
 
+    async def buscar(self, texto: str) -> list[Agencia]:
+        """Return every `Agencia` whose `razon_social`/`nit` matches `texto`
+        (case-insensitive substring), empty list if none."""
+        ...
+
 
 class RelacionRepositoryPort(Protocol):
     """Persistence contract for the `RelacionAgenciaPropietario` aggregate."""

@@ -12,7 +12,7 @@ directions, so the domain layer never depends on SQLAlchemy.
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agencias.domain.agencia import Agencia
@@ -63,6 +63,18 @@ class AgenciaRepositoryPostgres:
         if modelo is None:
             return None
         return self._a_dominio(modelo)
+
+    async def buscar(self, texto: str) -> list[Agencia]:
+        """Return every `Agencia` whose `razon_social`/`nit` matches `texto`
+        (case-insensitive substring, `ILIKE '%<texto>%'`), per `design.md`
+        decisión 4. Empty list when there is no match."""
+        patron = f"%{texto}%"
+        query = select(AgenciaORM).where(
+            or_(AgenciaORM.razon_social.ilike(patron), AgenciaORM.nit.ilike(patron))
+        )
+        resultado = await self._session.execute(query)
+        modelos = resultado.scalars().all()
+        return [self._a_dominio(modelo) for modelo in modelos]
 
     @staticmethod
     def _a_orm(agencia: Agencia) -> AgenciaORM:

@@ -30,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agencias.application.aprobar_ingreso import AprobarIngresoCommand, aprobar_ingreso
+from agencias.application.buscar_agencias import BuscarAgenciasCommand, buscar_agencias
 from agencias.application.confirmar_relacion import ConfirmarRelacionCommand, confirmar_relacion
 from agencias.application.crear_agencia import CrearAgenciaCommand, crear_agencia
 from agencias.application.iniciar_relacion import IniciarRelacionCommand, iniciar_relacion
@@ -41,6 +42,7 @@ from agencias.application.revocar_relacion import RevocarRelacionCommand, revoca
 from agencias.application.salir_de_agencia import SalirDeAgenciaCommand, salir_de_agencia
 from agencias.application.solicitar_ingreso import SolicitarIngresoCommand, solicitar_ingreso
 from agencias.infrastructure.api.schemas import (
+    AgenciaBuscarResponse,
     AgenciaCreateRequest,
     AgenciaResponse,
     ReasignarResponsableRequest,
@@ -292,6 +294,19 @@ async def reasignar_responsable_endpoint(
         command, relacion_repository=relacion_repository, usuario_repository=usuario_repository
     )
     return RelacionResponse.from_domain(relacion)
+
+
+@router.get("/buscar", response_model=list[AgenciaBuscarResponse])
+async def buscar_agencias_endpoint(
+    q: str,
+    agencia_repository: AgenciaRepository,
+) -> list[AgenciaBuscarResponse]:
+    """`GET /agencias/buscar?q=<texto>` — public endpoint (no `Depends` auth):
+    search agencias by partial `razon_social`/`nit`, case-insensitive.
+    Returns only public fields; empty list when there is no match."""
+    command = BuscarAgenciasCommand(texto=q)
+    agencias = await buscar_agencias(command, agencia_repository=agencia_repository)
+    return [AgenciaBuscarResponse.from_domain(agencia) for agencia in agencias]
 
 
 @router.get("/mia/propietarios", response_model=list[RelacionResponse])

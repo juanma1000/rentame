@@ -74,6 +74,18 @@ class FakeAgenciaRepository:
     async def obtener_por_id(self, agencia_id: UUID) -> Agencia | None:
         return self._agencias.get(agencia_id)
 
+    async def buscar(self, texto: str) -> list[Agencia]:
+        """Case-insensitive substring match on `razon_social`/`nit`, added
+        for HU-008's `buscar_agencias` use case
+        (`openspec/changes/hu-008/design.md` decisión 4).
+        """
+        texto_lower = texto.lower()
+        return [
+            agencia
+            for agencia in self._agencias.values()
+            if texto_lower in agencia.razon_social.lower() or texto_lower in agencia.nit.lower()
+        ]
+
 
 @dataclass
 class FakeRelacionRepository:

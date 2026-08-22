@@ -28,15 +28,17 @@ from inmuebles.domain.exceptions import InmuebleNoEncontrado, PropietarioInvalid
 from inmuebles.infrastructure.api.router import router as inmuebles_router
 from shared.domain.exceptions import DomainValidationError
 from shared.infrastructure.settings import get_settings
+from usuarios.domain.exceptions import CredencialesInvalidas, EmailYaRegistrado
+from usuarios.infrastructure.api.router import router as usuarios_router
 
-# `UsuarioORM` is never referenced directly by the API layer (no `usuarios`
-# router yet), but importing it here is required so it registers on
-# `Base.metadata` before any request touches the database: `InmuebleORM.
-# propietario_id`/`agente_id` declare `ForeignKey("usuario.id")`, and
-# SQLAlchemy raises `NoReferencedTableError` on the first INSERT/flush if
-# that mapper was never configured in this process. `alembic/env.py` needs
-# the same import for the same reason — add new domains' models here as
-# they land.
+# `UsuarioORM` is never referenced directly by the API layer here, but
+# importing it (transitively, via `usuarios_router`'s own imports) is
+# required so it registers on `Base.metadata` before any request touches the
+# database: `InmuebleORM.propietario_id`/`agente_id` declare
+# `ForeignKey("usuario.id")`, and SQLAlchemy raises `NoReferencedTableError`
+# on the first INSERT/flush if that mapper was never configured in this
+# process. `alembic/env.py` needs the same import for the same reason — add
+# new domains' models here as they land.
 from usuarios.infrastructure.persistence.models import UsuarioORM  # noqa: F401
 
 settings = get_settings()
@@ -56,6 +58,7 @@ app.add_middleware(
 
 app.include_router(inmuebles_router)
 app.include_router(agencias_router)
+app.include_router(usuarios_router)
 
 
 @app.exception_handler(DomainValidationError)
@@ -117,6 +120,18 @@ async def ultimo_agente_con_relaciones_activas_handler(
     request: Request, exc: UltimoAgenteConRelacionesActivas
 ) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(EmailYaRegistrado)
+async def email_ya_registrado_handler(request: Request, exc: EmailYaRegistrado) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(CredencialesInvalidas)
+async def credenciales_invalidas_handler(
+    request: Request, exc: CredencialesInvalidas
+) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": str(exc)})
 
 
 @app.get("/health")

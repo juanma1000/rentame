@@ -100,13 +100,13 @@
 
 ## 14. Testing E2E con Playwright MCP (OBLIGATORIO — EL AGENTE DEBE EJECUTARLO)
 
-- [ ] 14.1 Levantar backend, `shell`, `inmuebles-app` vía Docker
-- [ ] 14.2 Flujo agente: login con JWT de agente → publicar inmueble seleccionando propietario → verificar que aparece en "Inmuebles que gestiono"
-- [ ] 14.3 Flujo cruzado: un segundo agente de la misma agencia edita ese inmueble → verificar cambios reflejados
-- [ ] 14.4 Verificar persistencia comparando el estado de la base de datos con lo mostrado en la UI
-- [ ] 14.5 Restaurar el entorno de test y documentar en `openspec/changes/hu-002/specs/reports/YYYY-MM-DD-step-14-e2e-playwright.md`
+- [x] 14.1 Levantar backend, `shell`, `inmuebles-app` vía Docker
+- [x] 14.2 Flujo agente: login con JWT de agente → publicar inmueble seleccionando propietario → verificar que aparece en "Inmuebles que gestiono"
+- [x] 14.3 Flujo cruzado: un segundo agente de la misma agencia edita ese inmueble → verificar cambios reflejados
+- [x] 14.4 Verificar persistencia comparando el estado de la base de datos con lo mostrado en la UI
+- [x] 14.5 Restaurar el entorno de test y documentar en `openspec/changes/hu-002/specs/reports/YYYY-MM-DD-step-14-e2e-playwright.md`
 
 ## 15. Documentación (OBLIGATORIO)
 
-- [ ] 15.1 Marcar los criterios de aceptación cumplidos en `docs/user-stories/HU-002-publicacion-inmueble-agente.md`
-- [ ] 15.2 Actualizar `docs/architecture/architecture.md` si la estructura de carpetas de `inmuebles`/`inmuebles-app` cambió de forma relevante (nuevo caso de uso, nuevo endpoint, nueva página)
+- [x] 15.1 Marcar los criterios de aceptación cumplidos en `docs/user-stories/HU-002-publicacion-inmueble-agente.md`
+- [x] 15.2 Actualizar `docs/architecture/architecture.md` si la estructura de carpetas de `inmuebles`/`inmuebles-app` cambió de forma relevante (nuevo caso de uso, nuevo endpoint, nueva página)

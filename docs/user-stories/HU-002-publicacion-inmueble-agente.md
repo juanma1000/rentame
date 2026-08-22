@@ -6,17 +6,17 @@ quiero publicar y gestionar inmuebles en nombre de un propietario registrado en 
 para ofrecer el servicio de gestión inmobiliaria de forma digital sin requerir presencia física del propietario en cada paso.
 
 ## Criterios de aceptación
-- [ ] El agente puede crear una publicación de inmueble con los mismos campos que el propietario (HU-001), pero asociando explícitamente la propiedad a un propietario registrado en la plataforma (mismo endpoint `POST /inmuebles/`, con `propietario_id` obligatorio cuando el llamador es un agente).
-- [ ] El agente debe seleccionar al propietario representado antes de poder publicar un inmueble en su nombre (el propietario debe existir en el sistema).
-- [ ] El sistema rechaza la publicación si la agencia del agente no tiene una relación `activa` con el propietario seleccionado.
-- [ ] El inmueble publicado por el agente aparece vinculado al propietario representado, visible para ambos en sus respectivos paneles.
-- [ ] El agente puede editar los datos de cualquier inmueble de un propietario vinculado a su agencia (relación `activa`), sin importar si fue él u otro agente de la misma agencia quien lo publicó originalmente.
-- [ ] El agente puede despublicar/republicar (cambiar disponibilidad) los inmuebles de los propietarios vinculados a su agencia, con la misma regla de autorización a nivel agencia que la edición.
-- [ ] El propietario puede ver, en su panel, los inmuebles que un agente ha publicado en su nombre.
-- [ ] El agente puede ver un listado propio de todos los inmuebles que gestiona (de todos los propietarios vinculados a su agencia), sin tener que entrar propietario por propietario.
-- [ ] El agente no puede publicar ni gestionar inmuebles sin estar asociado a al menos un propietario representado con relación `activa`.
-- [ ] Si la relación agencia↔propietario deja de estar `activa` (revocada), ningún agente de esa agencia puede seguir editando o cambiando la disponibilidad de los inmuebles de ese propietario, además de la despublicación automática ya cubierta por HU-007.
-- [ ] El estado del inmueble cambia automáticamente a "No disponible" al completarse un arrendamiento, igual que en el flujo del propietario directo.
+- [x] El agente puede crear una publicación de inmueble con los mismos campos que el propietario (HU-001), pero asociando explícitamente la propiedad a un propietario registrado en la plataforma (mismo endpoint `POST /inmuebles/`, con `propietario_id` obligatorio cuando el llamador es un agente).
+- [x] El agente debe seleccionar al propietario representado antes de poder publicar un inmueble en su nombre (el propietario debe existir en el sistema).
+- [x] El sistema rechaza la publicación si la agencia del agente no tiene una relación `activa` con el propietario seleccionado.
+- [x] El inmueble publicado por el agente aparece vinculado al propietario representado, visible para ambos en sus respectivos paneles.
+- [x] El agente puede editar los datos de cualquier inmueble de un propietario vinculado a su agencia (relación `activa`), sin importar si fue él u otro agente de la misma agencia quien lo publicó originalmente.
+- [x] El agente puede despublicar/republicar (cambiar disponibilidad) los inmuebles de los propietarios vinculados a su agencia, con la misma regla de autorización a nivel agencia que la edición.
+- [x] El propietario puede ver, en su panel, los inmuebles que un agente ha publicado en su nombre.
+- [x] El agente puede ver un listado propio de todos los inmuebles que gestiona (de todos los propietarios vinculados a su agencia), sin tener que entrar propietario por propietario.
+- [x] El agente no puede publicar ni gestionar inmuebles sin estar asociado a al menos un propietario representado con relación `activa`.
+- [x] Si la relación agencia↔propietario deja de estar `activa` (revocada), ningún agente de esa agencia puede seguir editando o cambiando la disponibilidad de los inmuebles de ese propietario, además de la despublicación automática ya cubierta por HU-007.
+- [ ] El estado del inmueble cambia automáticamente a "No disponible" al completarse un arrendamiento, igual que en el flujo del propietario directo. — **Fuera de alcance de este change**: depende de HU-005 (arrendamiento), que todavía no existe. Mismo estado pendiente que quedó en HU-001.
 
 ## Notas técnicas
 - **Bloqueo resuelto por HU-007 (Gestión de Agencias), ya implementada**: el mecanismo de asociación entre agente y propietario no es agente-individual↔propietario, sino AGENCIA↔propietario (`backend/agencias/`), con estados `pendiente`/`activa`/`revocada`. Un agente solo puede publicar/gestionar inmuebles de un propietario si la agencia a la que pertenece (`usuario.agencia_id`) tiene una relación `activa` con ese propietario.

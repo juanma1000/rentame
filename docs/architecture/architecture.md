@@ -648,15 +648,20 @@ backend/
 │   │   ├── ports.py                 # InmuebleRepositoryPort, StoragePort
 │   │   └── exceptions.py            # InmuebleNoEncontrado, PropietarioInvalido
 │   ├── application/
-│   │   ├── publicar_inmueble.py     # UC: crea inmueble + sube fotos a storage
+│   │   ├── publicar_inmueble.py     # UC: crea inmueble + sube fotos a storage (acepta agente_id opcional, HU-002)
 │   │   ├── buscar_inmuebles.py      # UC: búsqueda con filtros, solo estado=DISPONIBLE
 │   │   ├── obtener_detalle.py       # UC: detalle público de un inmueble
 │   │   ├── editar_inmueble.py       # UC: actualizar datos o fotos
-│   │   └── cambiar_disponibilidad.py# UC: ocultar/publicar/marcar no disponible
+│   │   ├── cambiar_disponibilidad.py# UC: ocultar/publicar/marcar no disponible
+│   │   └── listar_inmuebles_gestionados.py # UC (HU-002): inmuebles de una lista de propietario_id
+│   │                                # ya resuelta por la API (nunca importa `agencias`)
 │   └── infrastructure/
 │       ├── api/
-│       │   ├── router.py            # GET /inmuebles, GET /inmuebles/{id}, POST /inmuebles, PUT, PATCH
-│       │   └── schemas.py           # InmuebleCreateRequest, InmuebleResponse, FiltrosQuery
+│       │   ├── router.py            # GET /inmuebles, GET /inmuebles/{id}, POST /inmuebles, PUT, PATCH,
+│       │   │                        # GET /inmuebles/gestionados (HU-002) — este router es el único lugar
+│       │   │                        # de `inmuebles` que consulta los repositorios de `agencias` para
+│       │   │                        # resolver autorización de agente (ver design.md de hu-002)
+│       │   └── schemas.py           # InmuebleCreateRequest, InmuebleResponse (incluye agente_id), FiltrosQuery
 │       ├── persistence/
 │       │   ├── models.py            # InmuebleORM, FotoInmuebleORM
 │       │   └── repository.py        # InmuebleRepositoryPostgres
@@ -810,20 +815,19 @@ frontend/
 │
 ├── inmuebles-app/                      # Remote: gestión de inmuebles (HU-001, HU-002)
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── PropertyForm.tsx        # Formulario unificado: crear / editar inmueble
-│   │   │   ├── PropertyStatusBadge.tsx # Badge: Disponible / No disponible / Oculto
-│   │   │   └── AgentLinkingFlow.tsx    # Flujo de invitación y vinculación agente-propietario
 │   │   ├── pages/
-│   │   │   ├── PublishPropertyPage.tsx # Formulario de publicación con carga de fotos
-│   │   │   ├── EditPropertyPage.tsx    # Edición de datos, fotos y estado del inmueble
-│   │   │   └── MyPropertiesPage.tsx    # Panel del propietario/agente: listado + estados
+│   │   │   ├── PublicarInmueblePage.tsx    # Formulario de publicación; selector de propietario
+│   │   │   │                              # condicional por rol (agente, HU-002)
+│   │   │   ├── EditarInmueblePage.tsx      # Edición — recibe el inmueble por prop, no por fetch
+│   │   │   ├── MisInmueblesPage.tsx        # Panel del propietario: listado + estados + acciones
+│   │   │   └── InmueblesGestionadosPage.tsx# Panel del agente (HU-002): cartera de su agencia
 │   │   ├── services/
-│   │   │   └── propertyManagementService.ts # publishProperty(), editProperty(), changeStatus()
-│   │   ├── model/
-│   │   │   └── property.types.ts       # Property, PropertyStatus, AgentRelation
-│   │   ├── PropertyRoutes.tsx          # Expuesto via Module Federation (./PropertyRoutes)
-│   │   └── index.tsx
+│   │   │   ├── inmuebles.api.ts        # publicarInmueble(), editarInmueble(), cambiarDisponibilidad(),
+│   │   │   │                          # listarMisInmuebles(), listarInmueblesGestionados()
+│   │   │   └── agencias.api.ts         # listarPropietariosVinculados() — GET /agencias/mia/propietarios
+│   │   ├── PropertyRoutes.tsx          # Expuesto vía Module Federation (./PropertyRoutes);
+│   │   │                              # decide MisInmueblesPage vs InmueblesGestionadosPage por rol
+│   │   └── main.tsx / bootstrap.tsx
 │   ├── rspack.config.ts                # exposes: { './PropertyRoutes': './src/PropertyRoutes' }
 │   ├── package.json
 │   └── tsconfig.json

@@ -84,8 +84,13 @@ class Inmueble:
         valor_mensual: Decimal,
         descripcion: str,
         fotos: list[FotoInmueble],
+        agente_id: uuid.UUID | None = None,
     ) -> Inmueble:
         """Validate business invariants and create a new listing.
+
+        `agente_id` (hu-002, design.md decisión 4) is stored as-is with no
+        business validation — agencia<->propietario authorization is
+        resolved before reaching this factory.
 
         Raises `DomainValidationError` when:
         - `valor_mensual` is not strictly positive.
@@ -113,6 +118,7 @@ class Inmueble:
             descripcion=descripcion,
             fotos=fotos,
             estado=EstadoInmueble.DISPONIBLE,
+            agente_id=agente_id,
         )
 
     @staticmethod

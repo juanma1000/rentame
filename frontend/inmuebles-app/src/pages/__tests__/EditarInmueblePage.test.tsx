@@ -226,3 +226,71 @@ describe('EditarInmueblePage (Red — tasks 17.1-17.2)', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// hu-002 — task 11.4 (Red, regression)
+//
+// `EditarInmueblePage` never gains a propietario selector (the inmueble
+// being edited already has a fixed `propietarioId` — see `design.md`
+// Decision 3: authorization for agentes is resolved by the backend at the
+// agencia level, not by anything the frontend sends). This is a simple
+// regression test: an agente OTHER than the original publicador (a
+// different `sub` than `inmueble.propietarioId`/`agenteId`) can still open
+// and submit the form exactly like a propietario would — the frontend does
+// not attempt any client-side authorization of its own, that's the
+// backend's job per Decision 3.
+// ---------------------------------------------------------------------------
+describe('EditarInmueblePage — regresión para agentes de la misma agencia (Red — hu-002 task 11.4)', () => {
+  const OTRO_AGENTE_TOKEN = makeToken({
+    sub: 'agente-uuid-distinto',
+    rol: 'agente',
+    exp: 9_999_999_999,
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    mockEditarInmueble.mockReset();
+  });
+
+  it('never renders a propietario selector, regardless of who the session belongs to', () => {
+    localStorage.setItem('rentame_auth_token', OTRO_AGENTE_TOKEN);
+    render(
+      <AuthProvider>
+        <EditarInmueblePage inmueble={EXISTING_INMUEBLE} />
+      </AuthProvider>,
+    );
+
+    expect(screen.queryByLabelText(/propietario/i)).not.toBeInTheDocument();
+  });
+
+  it('still preloads the fields and successfully submits when the session is a DIFFERENT agente than the original publicador', async () => {
+    mockEditarInmueble.mockResolvedValueOnce({
+      ...EXISTING_INMUEBLE,
+      valorMensual: 1_900_000,
+    });
+
+    localStorage.setItem('rentame_auth_token', OTRO_AGENTE_TOKEN);
+    render(
+      <AuthProvider>
+        <EditarInmueblePage inmueble={EXISTING_INMUEBLE} />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByLabelText(/dirección/i)).toHaveValue(EXISTING_INMUEBLE.direccion);
+    expect(submitButton()).not.toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/valor mensual/i), {
+      target: { value: '1900000' },
+    });
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(mockEditarInmueble).toHaveBeenCalledTimes(1));
+
+    const [inmuebleId, datos, token] = mockEditarInmueble.mock.calls[0];
+    expect(inmuebleId).toBe(EXISTING_INMUEBLE.id);
+    expect(datos).toEqual(expect.objectContaining({ valorMensual: 1_900_000 }));
+    expect(token).toBe(OTRO_AGENTE_TOKEN);
+
+    expect(await screen.findByText(/actualizado/i)).toBeInTheDocument();
+  });
+});

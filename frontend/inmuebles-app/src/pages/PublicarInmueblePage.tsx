@@ -13,10 +13,12 @@
  *  - On success, shows a confirmation message containing "publicado".
  *  - The JWT token is read from @rentame/auth's useAuth() (session.token).
  */
-import React, { ChangeEvent, FormEvent, useState } from 'react';
+import React, { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '@rentame/auth';
 import { InmueblesApiError, publicarInmueble } from '../services/inmuebles.api';
 import type { PublicarInmuebleInput } from '../services/inmuebles.api';
+import { listarPropietariosVinculados } from '../services/agencias.api';
+import type { PropietarioVinculado } from '../services/agencias.api';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -66,7 +68,7 @@ interface Props {
 }
 
 const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
-  const { session } = useAuth();
+  const { session, role } = useAuth();
 
   const [fields, setFields] = useState<FormFields>(EMPTY_FORM);
   const [fotos, setFotos] = useState<File[]>([]);
@@ -74,6 +76,24 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [published, setPublished] = useState(false);
+
+  // ---------------------------------------------------------------------------
+  // Agente-only: propietario selector
+  // ---------------------------------------------------------------------------
+
+  const [propietarios, setPropietarios] = useState<PropietarioVinculado[]>([]);
+  const [propietarioId, setPropietarioId] = useState<string>('');
+
+  useEffect(() => {
+    if (role !== 'agente' || !session) return;
+
+    listarPropietariosVinculados(session.token)
+      .then(setPropietarios)
+      .catch(() => {
+        // Non-critical — the selector will remain empty; the submit guard
+        // will prevent publishing without a valid propietarioId.
+      });
+  }, [role, session]);
 
   // -------------------------------------------------------------------------
   // Derived state
@@ -90,7 +110,11 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
     fields.valorMensual !== '' &&
     fields.descripcion.trim() !== '';
 
-  const isFormReady = allTextFieldsFilled && fotos.length > 0 && fotoError === null;
+  const isFormReady =
+    allTextFieldsFilled &&
+    fotos.length > 0 &&
+    fotoError === null &&
+    (role !== 'agente' || propietarioId !== '');
 
   // -------------------------------------------------------------------------
   // Handlers
@@ -139,6 +163,7 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
       banos: parseInt(fields.banos, 10),
       valorMensual: parseFloat(fields.valorMensual),
       descripcion: fields.descripcion,
+      ...(role === 'agente' && propietarioId ? { propietarioId } : {}),
     };
 
     setIsSubmitting(true);
@@ -310,6 +335,26 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
             onChange={handleFieldChange}
           />
         </div>
+
+        {role === 'agente' && (
+          <div style={fieldStyle}>
+            <label htmlFor="pub-propietario">Propietario</label>
+            <select
+              id="pub-propietario"
+              value={propietarioId}
+              onChange={(e) => setPropietarioId(e.target.value)}
+            >
+              <option value="">Seleccione un propietario...</option>
+              {propietarios
+                .filter((p) => p.estado === 'activa')
+                .map((p) => (
+                  <option key={p.id} value={p.propietarioId}>
+                    {p.propietarioEmail}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
 
         <div style={fieldStyle}>
           <label htmlFor="pub-fotos">Fotos</label>

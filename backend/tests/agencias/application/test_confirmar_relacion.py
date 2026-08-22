@@ -53,8 +53,8 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from agencias.application.confirmar_relacion import ConfirmarRelacionCommand, confirmar_relacion
 
+from agencias.application.confirmar_relacion import ConfirmarRelacionCommand, confirmar_relacion
 from agencias.domain.exceptions import AgenteNoEsMiembroDeAgencia
 from agencias.domain.relacion_agencia_propietario import (
     EstadoRelacion,

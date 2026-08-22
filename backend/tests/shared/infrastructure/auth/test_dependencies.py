@@ -14,6 +14,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from shared.infrastructure.auth.dependencies import (
     get_current_agente,
     get_current_propietario,
+    get_current_publicador,
 )
 from shared.infrastructure.auth.jwt_handler import create_access_token
 
@@ -117,5 +118,100 @@ class TestGetCurrentAgenteRejectedCases:
         # Act / Assert
         with pytest.raises(HTTPException) as exc_info:
             await get_current_agente(credentials)
+
+        assert exc_info.value.status_code == 401
+
+
+class TestGetCurrentPublicadorValidToken:
+    """`get_current_publicador` (hu-002, design.md decisión 2) accepts a JWT
+    with role "propietario" OR "agente" and returns their identity + role,
+    since the router needs both to decide the publishing flow (Decisión 2:
+    propietario uses their own id; agente must supply `propietario_id` and
+    have it authorized against `agencias`).
+
+    Contract fixed here: returns the same `TokenPayload` shape already used
+    by `get_current_propietario`/`get_current_agente` (`.sub` = usuario_id,
+    `.rol` = "propietario" | "agente") — no new type is introduced.
+    """
+
+    async def test_should_return_payload_when_token_has_propietario_role(self) -> None:
+        # Arrange
+        usuario_id = str(uuid4())
+        token = create_access_token(usuario_id=usuario_id, rol="propietario")
+
+        # Act
+        payload = await get_current_publicador(_credentials_for(token))
+
+        # Assert
+        assert payload.sub == usuario_id
+        assert payload.rol == "propietario"
+
+    async def test_should_return_payload_when_token_has_agente_role(self) -> None:
+        # Arrange
+        usuario_id = str(uuid4())
+        token = create_access_token(usuario_id=usuario_id, rol="agente")
+
+        # Act
+        payload = await get_current_publicador(_credentials_for(token))
+
+        # Assert
+        assert payload.sub == usuario_id
+        assert payload.rol == "agente"
+
+
+class TestGetCurrentPublicadorRejectedCases:
+    async def test_should_raise_401_when_authorization_header_is_missing(self) -> None:
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_publicador(None)
+
+        assert exc_info.value.status_code == 401
+
+    async def test_should_raise_401_when_token_is_invalid(self) -> None:
+        # Arrange
+        credentials = _credentials_for("not-a-valid-jwt")
+
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_publicador(credentials)
+
+        assert exc_info.value.status_code == 401
+
+    async def test_should_raise_401_when_token_is_expired(self) -> None:
+        # Arrange
+        from datetime import timedelta
+
+        token = create_access_token(
+            usuario_id=str(uuid4()),
+            rol="propietario",
+            expires_delta=timedelta(minutes=-1),
+        )
+        credentials = _credentials_for(token)
+
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_publicador(credentials)
+
+        assert exc_info.value.status_code == 401
+
+    async def test_should_raise_401_when_role_is_inquilino(self) -> None:
+        # Arrange
+        token = create_access_token(usuario_id=str(uuid4()), rol="inquilino")
+        credentials = _credentials_for(token)
+
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_publicador(credentials)
+
+        assert exc_info.value.status_code == 401
+
+    async def test_should_raise_401_when_role_is_any_other_unrecognized_value(self) -> None:
+        # Arrange
+        token = create_access_token(usuario_id=str(uuid4()), rol="administrador")
+        credentials = _credentials_for(token)
+
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_publicador(credentials)
 
         assert exc_info.value.status_code == 401

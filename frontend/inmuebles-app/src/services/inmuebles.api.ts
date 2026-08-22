@@ -25,6 +25,13 @@ export interface PublicarInmuebleInput {
   banos: number;
   valorMensual: number;
   descripcion: string;
+  /**
+   * Required when publishing as an `agente` on behalf of a propietario.
+   * Mapped to the backend's `propietario_id` form field.
+   * Omitted (i.e. `undefined`) for `propietario` sessions — the backend
+   * resolves `propietario_id` from the JWT in that case.
+   */
+  propietarioId?: string;
 }
 
 /**
@@ -186,6 +193,11 @@ export async function publicarInmueble(
   form.append('banos', String(datos.banos));
   form.append('valor_mensual', String(datos.valorMensual));
 
+  // Propietario id — only when publishing as an agente on behalf of a propietario.
+  if (datos.propietarioId !== undefined) {
+    form.append('propietario_id', datos.propietarioId);
+  }
+
   // Photos — repeated `fotos` entries, in order.
   for (const foto of fotos) {
     form.append('fotos', foto);
@@ -294,6 +306,31 @@ export async function listarMisInmuebles(token: string): Promise<Inmueble[]> {
  * @returns the updated `Inmueble` parsed from the 200 JSON response
  * @throws {InmueblesApiError} when the server returns a non-2xx status
  */
+/**
+ * GET `/inmuebles/gestionados` — list all inmuebles managed by the
+ * authenticated agente (i.e. inmuebles whose propietario has an active
+ * relationship with the agente's agencia).
+ *
+ * @param token — JWT access token for the `Authorization: Bearer` header
+ * @returns array of `Inmueble` managed by the agente's agencia (empty when none)
+ * @throws {InmueblesApiError} when the server returns a non-2xx status
+ */
+export async function listarInmueblesGestionados(token: string): Promise<Inmueble[]> {
+  const response = await fetch(`${BASE_URL}/inmuebles/gestionados`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const body = (await response.json()) as { detail?: string };
+    throw new InmueblesApiError(body.detail ?? 'Error desconocido', response.status);
+  }
+
+  return ((await response.json()) as RawInmuebleApi[]).map(mapInmuebleFromApi);
+}
+
 export async function cambiarDisponibilidad(
   inmuebleId: string,
   nuevoEstado: 'disponible' | 'oculto',

@@ -201,3 +201,59 @@ class TestInmuebleRepositoryPostgresListarPorPropietario:
 
         # Assert
         assert propios == []
+
+
+class TestInmuebleRepositoryPostgresListarPorPropietarios:
+    """Covers task 5.2 of `openspec/changes/hu-002/tasks.md`: real integration
+    tests, against Postgres, for `listar_por_propietarios(propietario_ids)`
+    (already implemented ahead of schedule in task 5.1, per hu-002
+    `design.md` decisión 6).
+    """
+
+    async def test_should_return_inmuebles_of_multiple_propietarios_excluding_unlisted(
+        self, db_session: AsyncSession, seed_propietario: UsuarioORM
+    ) -> None:
+        # Arrange
+        repository = InmuebleRepositoryPostgres(db_session)
+        propietario_2 = await _seed_otro_propietario(db_session)
+        propietario_3 = await _seed_otro_propietario(db_session)
+
+        inmueble_1 = _build_inmueble(seed_propietario.id, fotos_count=1, direccion="Calle 1 # 1-01")
+        inmueble_2 = _build_inmueble(propietario_2.id, fotos_count=1, direccion="Calle 2 # 2-02")
+        inmueble_3 = _build_inmueble(propietario_3.id, fotos_count=1, direccion="Calle 3 # 3-03")
+
+        await repository.guardar(inmueble_1)
+        await repository.guardar(inmueble_2)
+        await repository.guardar(inmueble_3)
+        await db_session.flush()
+
+        # Act
+        resultado = await repository.listar_por_propietarios(
+            [seed_propietario.id, propietario_3.id]
+        )
+
+        # Assert: propietario_2 (id2) is omitted from the query, so its
+        # inmueble must not appear in the result.
+        assert len(resultado) == 2
+        assert {inmueble.direccion for inmueble in resultado} == {
+            "Calle 1 # 1-01",
+            "Calle 3 # 3-03",
+        }
+        assert {inmueble.propietario_id for inmueble in resultado} == {
+            seed_propietario.id,
+            propietario_3.id,
+        }
+
+    async def test_should_return_empty_list_when_propietario_ids_is_empty(
+        self, db_session: AsyncSession, seed_propietario: UsuarioORM
+    ) -> None:
+        # Arrange
+        repository = InmuebleRepositoryPostgres(db_session)
+        await repository.guardar(_build_inmueble(seed_propietario.id, fotos_count=1))
+        await db_session.flush()
+
+        # Act
+        resultado = await repository.listar_por_propietarios([])
+
+        # Assert
+        assert resultado == []

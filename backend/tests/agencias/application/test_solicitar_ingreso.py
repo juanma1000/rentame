@@ -26,8 +26,8 @@ the contract `backend-expert` must satisfy:
 import uuid
 
 import pytest
-from agencias.application.solicitar_ingreso import SolicitarIngresoCommand, solicitar_ingreso
 
+from agencias.application.solicitar_ingreso import SolicitarIngresoCommand, solicitar_ingreso
 from agencias.domain.exceptions import AgenteYaTieneAgencia
 from agencias.domain.solicitud_ingreso import EstadoSolicitudIngreso
 from tests.agencias.application.conftest import (

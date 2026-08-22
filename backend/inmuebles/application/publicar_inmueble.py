@@ -44,7 +44,12 @@ class FotoParaPublicar:
 
 @dataclass
 class PublicarInmuebleCommand:
-    """Every field `Inmueble.crear` needs, plus the raw photos to upload."""
+    """Every field `Inmueble.crear` needs, plus the raw photos to upload.
+
+    `agente_id` (hu-002, design.md decisión 2/4) is optional: when an
+    agente publishes on behalf of a propietario, the API layer resolves and
+    passes it here; it is stored on the resulting `Inmueble` with no extra
+    validation in this use case (that lives in `Inmueble.crear`)."""
 
     propietario_id: uuid.UUID
     direccion: str
@@ -57,6 +62,7 @@ class PublicarInmuebleCommand:
     valor_mensual: Decimal
     descripcion: str
     fotos: list[FotoParaPublicar]
+    agente_id: uuid.UUID | None = None
 
 
 async def publicar_inmueble(
@@ -105,6 +111,7 @@ async def publicar_inmueble(
         valor_mensual=command.valor_mensual,
         descripcion=command.descripcion,
         fotos=fotos,
+        agente_id=command.agente_id,
     )
 
     return await repository.guardar(inmueble)

@@ -84,6 +84,31 @@ jest.mock(
 );
 
 // ---------------------------------------------------------------------------
+// hu-002, tasks 11.1-11.3 — mock the (not-yet-existing) `agencias.api`
+// service. `listarPropietariosVinculados(token)` is the contract fixed by
+// this Red phase: resolves to an array of
+// `{ id, agenciaId, propietarioId, propietarioEmail, estado,
+// agenteResponsableId }` (camelCase mirror of `RelacionResponse`, see
+// `backend/agencias/infrastructure/api/schemas.py` on `feature/hu-002-backend`
+// — `GET /agencias/mia/propietarios` does NOT filter by `estado` itself, so
+// filtering down to `estado === 'activa'` is the service's job, not the
+// component's — documented here so `frontend-expert` doesn't re-filter in
+// `PublicarInmueblePage` and double-apply the rule).
+// `{ virtual: true }` is required because `services/agencias.api.ts` does
+// not exist yet during this Red phase.
+// ---------------------------------------------------------------------------
+const mockListarPropietariosVinculados = jest.fn();
+
+jest.mock(
+  '../../services/agencias.api',
+  () => ({
+    listarPropietariosVinculados: (...args: unknown[]) =>
+      mockListarPropietariosVinculados(...args),
+  }),
+  { virtual: true },
+);
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -101,8 +126,23 @@ function makeToken(payload: Record<string, unknown>): string {
 
 const TEST_TOKEN = makeToken({ sub: 'propietario-uuid-1', rol: 'propietario', exp: 9_999_999_999 });
 
+// hu-002, tasks 11.1-11.3 — a JWT with rol "agente", used to exercise the
+// conditional propietario selector.
+const AGENTE_TOKEN = makeToken({ sub: 'agente-uuid-1', rol: 'agente', exp: 9_999_999_999 });
+
 function renderPage() {
   localStorage.setItem('rentame_auth_token', TEST_TOKEN);
+  return render(
+    <AuthProvider>
+      <PublicarInmueblePage />
+    </AuthProvider>,
+  );
+}
+
+// hu-002 — renders the page with an "agente" session instead of the default
+// "propietario" one used by the HU-001 tests above.
+function renderPageAsAgente() {
+  localStorage.setItem('rentame_auth_token', AGENTE_TOKEN);
   return render(
     <AuthProvider>
       <PublicarInmueblePage />
@@ -253,6 +293,151 @@ describe('PublicarInmueblePage (Red — tasks 16.1-16.4)', () => {
       expect(token).toBe(TEST_TOKEN);
 
       expect(await screen.findByText(/publicado/i)).toBeInTheDocument();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hu-002 — tasks 11.1-11.3 (Red)
+//
+// Covers the "selector de propietario" scenarios of
+// `openspec/changes/hu-002/specs/inmuebles/spec.md`: an agent publishing on
+// behalf of a propietario with an active relación with their agencia.
+//
+// Contract fixed here for the future implementation (`frontend-expert`,
+// task 11.5):
+//   - The selector (`getByLabelText(/propietario/i)`, a `<select>`) is
+//     rendered ONLY when `useAuth().role === 'agente'` — never for
+//     `'propietario'` sessions (11.1).
+//   - On mount, when the session is an agente, the page calls
+//     `services/agencias.api.ts`'s `listarPropietariosVinculados(token)`
+//     and fills the selector with one `<option>` per propietario returned
+//     with `estado === 'activa'`, labelled with `propietarioEmail` (11.2).
+//     Propietarios in any other `estado` (e.g. `'revocada'`, `'pendiente'`)
+//     must never appear as options.
+//   - Submitting the form as an agente sends the selected propietario's id
+//     to `publicarInmueble` as `datos.propietarioId` (camelCase — mapped by
+//     `services/inmuebles.api.ts` to the backend's `propietario_id` form
+//     field, mirroring every other camelCase↔snake_case field already in
+//     `PublicarInmuebleInput`) (11.3).
+// ---------------------------------------------------------------------------
+describe('PublicarInmueblePage — selector de propietario para agentes (Red — hu-002 tasks 11.1-11.3)', () => {
+  const PROPIETARIOS_VINCULADOS = [
+    {
+      id: 'relacion-uuid-1',
+      agenciaId: 'agencia-uuid-1',
+      propietarioId: 'propietario-uuid-1',
+      propietarioEmail: 'propietario1@example.com',
+      estado: 'activa',
+      agenteResponsableId: 'agente-uuid-1',
+    },
+    {
+      id: 'relacion-uuid-2',
+      agenciaId: 'agencia-uuid-1',
+      propietarioId: 'propietario-uuid-2',
+      propietarioEmail: 'propietario2@example.com',
+      estado: 'activa',
+      agenteResponsableId: null,
+    },
+    {
+      id: 'relacion-uuid-3',
+      agenciaId: 'agencia-uuid-1',
+      propietarioId: 'propietario-uuid-3',
+      propietarioEmail: 'revocado@example.com',
+      estado: 'revocada',
+      agenteResponsableId: null,
+    },
+  ];
+
+  beforeEach(() => {
+    localStorage.clear();
+    mockPublicarInmueble.mockReset();
+    mockListarPropietariosVinculados.mockReset();
+    mockListarPropietariosVinculados.mockResolvedValue(PROPIETARIOS_VINCULADOS);
+  });
+
+  // 11.1 ----------------------------------------------------------------------
+  describe('11.1 — the propietario selector is conditional on the session role', () => {
+    it('renders the propietario selector when the session role is "agente"', async () => {
+      renderPageAsAgente();
+
+      expect(await screen.findByLabelText(/propietario/i)).toBeInTheDocument();
+    });
+
+    it('does NOT render the propietario selector when the session role is "propietario"', async () => {
+      renderPage();
+
+      // Give any (incorrect) fetch-on-mount effect a chance to resolve
+      // before asserting absence, so this isn't a false negative from a
+      // race with an async render.
+      await waitFor(() => {
+        expect(mockListarPropietariosVinculados).not.toHaveBeenCalled();
+      });
+      expect(screen.queryByLabelText(/propietario/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // 11.2 ----------------------------------------------------------------------
+  describe('11.2 — the selector is filled with the agencia\'s active propietarios', () => {
+    it('fetches listarPropietariosVinculados with the agente token and shows one option per propietario_email with estado "activa"', async () => {
+      renderPageAsAgente();
+
+      const selector = await screen.findByLabelText(/propietario/i);
+      expect(mockListarPropietariosVinculados).toHaveBeenCalledWith(AGENTE_TOKEN);
+
+      expect(
+        await screen.findByRole('option', { name: 'propietario1@example.com' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'propietario2@example.com' }),
+      ).toBeInTheDocument();
+
+      // The relación with estado "revocada" must never be offered.
+      expect(
+        screen.queryByRole('option', { name: 'revocado@example.com' }),
+      ).not.toBeInTheDocument();
+
+      expect(selector).toBeInTheDocument();
+    });
+  });
+
+  // 11.3 ----------------------------------------------------------------------
+  describe('11.3 — submitting as an agente sends the selected propietario_id', () => {
+    it('calls publicarInmueble with the selected propietarioId in datos', async () => {
+      mockPublicarInmueble.mockResolvedValueOnce({
+        id: 'inmueble-uuid-2',
+        propietarioId: 'propietario-uuid-2',
+        direccion: 'Calle 10 # 20-30',
+        barrio: 'Laureles',
+        ciudad: 'Medellín',
+        tipo: 'apartamento',
+        areaM2: 65,
+        habitaciones: 2,
+        banos: 1,
+        valorMensual: 1_500_000,
+        descripcion: 'Apartamento luminoso cerca al parque.',
+        estado: 'disponible',
+        fotos: [],
+      });
+
+      renderPageAsAgente();
+
+      await screen.findByLabelText(/propietario/i);
+      fillRequiredTextFields();
+      attachFotos(makeFiles(1));
+      fireEvent.change(screen.getByLabelText(/propietario/i), {
+        target: { value: 'propietario-uuid-2' },
+      });
+
+      expect(submitButton()).not.toBeDisabled();
+      fireEvent.click(submitButton());
+
+      await waitFor(() => expect(mockPublicarInmueble).toHaveBeenCalledTimes(1));
+
+      const [datos] = mockPublicarInmueble.mock.calls[0];
+      expect(datos).toEqual(
+        expect.objectContaining({ propietarioId: 'propietario-uuid-2' }),
+      );
     });
   });
 });

@@ -116,19 +116,36 @@ erDiagram
         string apellido
         string telefono
         string rol "propietario | agente | inquilino"
+        uuid agencia_id FK "nullable — solo aplica a rol=agente"
         boolean activo
         timestamp creado_en
         timestamp actualizado_en
     }
 
-    RELACION_AGENTE_PROPIETARIO {
+    AGENCIA {
         uuid id PK
-        uuid agente_id FK
-        uuid propietario_id FK
-        string estado "pendiente | activa | revocada"
-        string codigo_invitacion UK
+        string razon_social
+        string nit UK
         timestamp creado_en
-        timestamp aceptado_en
+    }
+
+    SOLICITUD_INGRESO_AGENCIA {
+        uuid id PK
+        uuid agencia_id FK
+        uuid agente_id FK
+        string estado "pendiente | aprobada"
+        timestamp creado_en
+        timestamp resuelto_en
+    }
+
+    RELACION_AGENCIA_PROPIETARIO {
+        uuid id PK
+        uuid agencia_id FK
+        uuid propietario_id FK
+        uuid agente_responsable_id FK "nullable — trazabilidad, no autoriza"
+        string estado "pendiente | activa | revocada"
+        timestamp creado_en
+        timestamp activado_en
     }
 
     INMUEBLE {
@@ -238,8 +255,12 @@ erDiagram
         timestamp pagado_en
     }
 
-    USUARIO ||--o{ RELACION_AGENTE_PROPIETARIO : "agente en"
-    USUARIO ||--o{ RELACION_AGENTE_PROPIETARIO : "propietario en"
+    AGENCIA ||--o{ USUARIO : "empleador de (rol=agente)"
+    AGENCIA ||--o{ SOLICITUD_INGRESO_AGENCIA : "recibe"
+    USUARIO ||--o{ SOLICITUD_INGRESO_AGENCIA : "solicita ingreso"
+    AGENCIA ||--o{ RELACION_AGENCIA_PROPIETARIO : "representa a"
+    USUARIO ||--o{ RELACION_AGENCIA_PROPIETARIO : "propietario en"
+    USUARIO ||--o{ RELACION_AGENCIA_PROPIETARIO : "agente responsable de"
     USUARIO ||--o{ INMUEBLE : "propietario de"
     USUARIO ||--o{ INMUEBLE : "agente de"
     USUARIO ||--|| VALIDACION_IDENTIDAD : "tiene"
@@ -609,15 +630,15 @@ backend/
 │   │   ├── ports.py                 # UsuarioRepositoryPort (interface)
 │   │   └── exceptions.py            # UsuarioNoEncontrado, EmailDuplicado
 │   ├── application/
-│   │   ├── registrar_usuario.py     # Caso de uso: registro con hash de password
-│   │   ├── autenticar_usuario.py    # Caso de uso: login → JWT + refresh token
-│   │   └── vincular_agente.py       # Caso de uso: crear/aceptar RelacionAgentePropietario
+│   │   ├── registrar_usuario.py     # Caso de uso: registro con hash de password (pendiente — hoy
+│   │   │                            # solo existe el stub mínimo de HU-001, sin registro/login real)
+│   │   └── autenticar_usuario.py    # Caso de uso: login → JWT + refresh token (idem, pendiente)
 │   └── infrastructure/
 │       ├── api/
-│       │   ├── router.py            # POST /auth/registro, POST /auth/login, POST /agentes/vincular
+│       │   ├── router.py            # POST /auth/registro, POST /auth/login
 │       │   └── schemas.py           # RegistroRequest, LoginRequest, TokenResponse (Pydantic)
 │       └── persistence/
-│           ├── models.py            # UsuarioORM, RelacionAgenteORM (SQLAlchemy)
+│           ├── models.py            # UsuarioORM (incluye agencia_id, agregado por HU-007)
 │           └── repository.py        # UsuarioRepositoryPostgres implementa UsuarioRepositoryPort
 │
 ├── inmuebles/
@@ -641,6 +662,34 @@ backend/
 │       │   └── repository.py        # InmuebleRepositoryPostgres
 │       └── external/
 │           └── s3_storage_adapter.py# StoragePort → boto3 S3/MinIO, proxy por backend
+│
+├── agencias/                         # HU-007 — fundacional para HU-002
+│   ├── domain/
+│   │   ├── agencia.py                # Entidad Agencia (razón social, NIT)
+│   │   ├── relacion_agencia_propietario.py # Entidad + EstadoRelacion enum
+│   │   ├── solicitud_ingreso.py      # Entidad SolicitudIngreso + EstadoSolicitudIngreso enum
+│   │   ├── ports.py                  # AgenciaRepositoryPort, RelacionRepositoryPort,
+│   │   │                             # SolicitudIngresoRepositoryPort, UsuarioAgenciaRepositoryPort
+│   │   └── exceptions.py             # AgenteYaTieneAgencia, UltimoAgenteConRelacionesActivas,
+│   │                                 # AgenteNoEsMiembroDeAgencia, PropietarioInvalido, etc.
+│   ├── application/
+│   │   ├── crear_agencia.py          # UC: agente crea agencia, queda como primer miembro
+│   │   ├── solicitar_ingreso.py      # UC: agente sin agencia solicita unirse a una existente
+│   │   ├── aprobar_ingreso.py        # UC: un miembro aprueba el ingreso
+│   │   ├── salir_de_agencia.py       # UC: salida voluntaria; bloquea al último miembro con relaciones activas
+│   │   ├── iniciar_relacion.py       # UC: propietario inicia relación con una agencia
+│   │   ├── confirmar_relacion.py     # UC: agente confirma; auto-revoca relación activa previa + cascada
+│   │   ├── revocar_relacion.py       # UC: propietario revoca; dispara cascada
+│   │   ├── reasignar_responsable.py  # UC: reasigna el puntero de agente responsable (solo trazabilidad)
+│   │   └── _cascada_despublicacion.py# Helper: invoca inmuebles.cambiar_disponibilidad(propietario_id=None)
+│   │                                 # para los inmuebles de la agencia revocada — sin modificar `inmuebles`
+│   └── infrastructure/
+│       ├── api/
+│       │   ├── router.py             # POST /agencias, /agencias/{id}/solicitudes, /relaciones, etc.
+│       │   └── schemas.py            # AgenciaResponse, SolicitudIngresoResponse, RelacionResponse
+│       └── persistence/
+│           ├── models.py             # AgenciaORM, SolicitudIngresoAgenciaORM, RelacionAgenciaPropietarioORM
+│           └── repository.py         # Repositorios Postgres para cada puerto
 │
 ├── identidad/
 │   ├── domain/

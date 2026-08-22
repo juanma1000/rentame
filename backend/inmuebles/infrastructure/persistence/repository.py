@@ -85,6 +85,7 @@ class InmuebleRepositoryPostgres:
         return InmuebleORM(
             id=inmueble.id,
             propietario_id=inmueble.propietario_id,
+            agente_id=inmueble.agente_id,
             direccion=inmueble.direccion,
             barrio=inmueble.barrio,
             ciudad=inmueble.ciudad,
@@ -113,6 +114,7 @@ class InmuebleRepositoryPostgres:
         return Inmueble(
             id=modelo.id,
             propietario_id=modelo.propietario_id,
+            agente_id=modelo.agente_id,
             direccion=modelo.direccion,
             barrio=modelo.barrio,
             ciudad=modelo.ciudad,

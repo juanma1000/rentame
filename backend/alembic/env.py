@@ -5,11 +5,15 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
-
 # Import every domain's ORM models so they register on Base.metadata before
 # autogenerate compares it against the database. Add new domains' models
 # here as they land.
+from agencias.infrastructure.persistence.models import (  # noqa: F401
+    AgenciaORM,
+    RelacionAgenciaPropietarioORM,
+    SolicitudIngresoAgenciaORM,
+)
+from alembic import context
 from inmuebles.infrastructure.persistence.models import (  # noqa: F401
     FotoInmuebleORM,
     InmuebleORM,

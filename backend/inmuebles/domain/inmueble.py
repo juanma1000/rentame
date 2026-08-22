@@ -67,6 +67,7 @@ class Inmueble:
     fotos: list[FotoInmueble]
     estado: EstadoInmueble
     id: uuid.UUID | None = None
+    agente_id: uuid.UUID | None = None
 
     @classmethod
     def crear(

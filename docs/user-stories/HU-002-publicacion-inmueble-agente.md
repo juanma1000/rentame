@@ -15,7 +15,8 @@ para ofrecer el servicio de gestión inmobiliaria de forma digital sin requerir 
 - [ ] El estado del inmueble cambia automáticamente a "No disponible" al completarse un arrendamiento, igual que en el flujo del propietario directo.
 
 ## Notas técnicas
-- Requiere un mecanismo de asociación entre agente y propietario (invitación, código, o flujo de vinculación a definir en diseño técnico).
+- **Bloqueo resuelto por HU-007 (Gestión de Agencias), ya implementada**: el mecanismo de asociación entre agente y propietario no es agente-individual↔propietario, sino AGENCIA↔propietario (`backend/agencias/`), con estados `pendiente`/`activa`/`revocada`. El diseño técnico de esta HU debe apoyarse en ese modelo: un agente solo puede publicar/gestionar inmuebles de un propietario si la agencia a la que pertenece (`usuario.agencia_id`) tiene una relación `activa` con ese propietario. La autorización real para `publicar_inmueble`/`editar_inmueble` (que hoy solo aceptan al propietario dueño) todavía no fue extendida para aceptar agentes — es justamente el trabajo pendiente de esta HU.
+- `Inmueble.agente_id` ya existe en el dominio y el repositorio (expuesto para HU-007), pero `Inmueble.crear()` no lo acepta como parámetro todavía — esta HU necesita agregarlo ahí, validando la relación agencia↔propietario activa antes de aceptar la publicación.
 - Esta HU tiene dependencia funcional con HU-001: comparte el formulario de publicación; la diferencia es la capa de representación/propiedad del inmueble.
 - El modelo de permisos debe distinguir el rol Agente del rol Propietario a nivel de acceso y visibilidad.
 

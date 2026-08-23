@@ -19,6 +19,7 @@ import { InmueblesApiError, publicarInmueble } from '../services/inmuebles.api';
 import type { PublicarInmuebleInput } from '../services/inmuebles.api';
 import { listarPropietariosVinculados } from '../services/agencias.api';
 import type { PropietarioVinculado } from '../services/agencias.api';
+import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -203,7 +204,7 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
             setFotoError(null);
             setSubmitError(null);
           }}
-          style={buttonStyle}
+          style={secondaryButtonStyle}
         >
           Publicar otro
         </button>
@@ -220,7 +221,7 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
   return (
     <div style={containerStyle}>
       {onVolver && (
-        <button type="button" style={backButtonStyle} onClick={onVolver}>
+        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
           Volver a mis inmuebles
         </button>
       )}
@@ -377,7 +378,7 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
         <button
           type="submit"
           disabled={!isFormReady || isSubmitting}
-          style={buttonStyle}
+          style={primaryButtonStyle}
         >
           {isSubmitting ? 'Publicando...' : 'Publicar'}
         </button>
@@ -404,23 +405,9 @@ const fieldStyle: React.CSSProperties = {
   gap: '0.25rem',
 };
 
-const buttonStyle: React.CSSProperties = {
-  padding: '0.5rem 1.25rem',
-  cursor: 'pointer',
-};
-
 const errorStyle: React.CSSProperties = {
   color: 'var(--color-error)',
   marginBottom: '0.75rem',
-};
-
-const backButtonStyle: React.CSSProperties = {
-  padding: '0.35rem 0.85rem',
-  cursor: 'pointer',
-  borderRadius: '4px',
-  border: '1px solid var(--color-border)',
-  marginBottom: '1rem',
-  background: 'none',
 };
 
 export default PublicarInmueblePage;

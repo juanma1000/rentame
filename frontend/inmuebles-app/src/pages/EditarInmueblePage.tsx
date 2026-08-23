@@ -18,6 +18,7 @@ import React, { ChangeEvent, FormEvent, useState } from 'react';
 import { useAuth } from '@rentame/auth';
 import { editarInmueble, InmueblesApiError } from '../services/inmuebles.api';
 import type { EditarInmuebleInput, Inmueble } from '../services/inmuebles.api';
+import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -158,7 +159,7 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
   return (
     <div style={containerStyle}>
       {onVolver && (
-        <button type="button" style={backButtonStyle} onClick={onVolver}>
+        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
           Volver a mis inmuebles
         </button>
       )}
@@ -283,7 +284,7 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
         <button
           type="submit"
           disabled={!isFormReady || isSubmitting}
-          style={buttonStyle}
+          style={primaryButtonStyle}
         >
           {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
         </button>
@@ -310,23 +311,9 @@ const fieldStyle: React.CSSProperties = {
   gap: '0.25rem',
 };
 
-const buttonStyle: React.CSSProperties = {
-  padding: '0.5rem 1.25rem',
-  cursor: 'pointer',
-};
-
 const errorStyle: React.CSSProperties = {
   color: 'var(--color-error)',
   marginBottom: '0.75rem',
-};
-
-const backButtonStyle: React.CSSProperties = {
-  padding: '0.35rem 0.85rem',
-  cursor: 'pointer',
-  borderRadius: '4px',
-  border: '1px solid var(--color-border)',
-  marginBottom: '1rem',
-  background: 'none',
 };
 
 export default EditarInmueblePage;

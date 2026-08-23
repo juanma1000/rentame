@@ -24,6 +24,7 @@ import {
   listarMisInmuebles,
 } from '../services/inmuebles.api';
 import type { Inmueble } from '../services/inmuebles.api';
+import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -155,7 +156,7 @@ const MisInmueblesPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
               {inmueble.estado === 'disponible' && (
                 <button
                   type="button"
-                  style={buttonStyle}
+                  style={secondaryButtonStyle}
                   onClick={() => void handleCambiarDisponibilidad(inmueble, 'oculto')}
                 >
                   Despublicar
@@ -164,7 +165,7 @@ const MisInmueblesPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
               {inmueble.estado === 'oculto' && (
                 <button
                   type="button"
-                  style={buttonStyle}
+                  style={secondaryButtonStyle}
                   onClick={() => void handleCambiarDisponibilidad(inmueble, 'disponible')}
                 >
                   Republicar
@@ -173,7 +174,7 @@ const MisInmueblesPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
               {onEditar && (
                 <button
                   type="button"
-                  style={buttonStyle}
+                  style={secondaryButtonStyle}
                   onClick={() => onEditar(inmueble)}
                 >
                   Editar
@@ -256,23 +257,6 @@ const actionsStyle: React.CSSProperties = {
   display: 'flex',
   gap: '0.5rem',
   marginTop: '0.25rem',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '0.4rem 0.9rem',
-  cursor: 'pointer',
-  borderRadius: '4px',
-  border: '1px solid var(--color-border)',
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-  padding: '0.5rem 1.25rem',
-  cursor: 'pointer',
-  borderRadius: '4px',
-  border: '1px solid var(--color-primary)',
-  backgroundColor: 'var(--color-primary)',
-  color: 'var(--color-surface)',
-  marginBottom: '1rem',
 };
 
 export default MisInmueblesPage;

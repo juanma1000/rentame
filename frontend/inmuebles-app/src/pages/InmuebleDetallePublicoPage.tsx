@@ -11,6 +11,7 @@
 import React, { useEffect, useState } from 'react';
 import { InmueblesApiError, obtenerPublico } from '../services/inmuebles.api';
 import type { InmueblePublicoDetalle } from '../services/inmuebles.api';
+import { secondaryButtonStyle } from '../styles/buttons';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -76,7 +77,7 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
     return (
       <div style={containerStyle}>
         <p>Este inmueble ya no está disponible.</p>
-        <button type="button" style={buttonStyle} onClick={onVolver}>
+        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
           Volver
         </button>
       </div>
@@ -87,7 +88,7 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
     return (
       <div style={containerStyle}>
         <p role="alert">{fetchError ?? 'Error al cargar el inmueble.'}</p>
-        <button type="button" style={buttonStyle} onClick={onVolver}>
+        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
           Volver
         </button>
       </div>
@@ -96,7 +97,7 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
 
   return (
     <div style={containerStyle}>
-      <button type="button" style={buttonStyle} onClick={onVolver}>
+      <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
         Volver
       </button>
 
@@ -144,14 +145,6 @@ const containerStyle: React.CSSProperties = {
   padding: '2rem',
   maxWidth: '720px',
   margin: '0 auto',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '0.4rem 0.9rem',
-  cursor: 'pointer',
-  borderRadius: '4px',
-  border: '1px solid var(--color-border)',
-  marginBottom: '1rem',
 };
 
 const fotosStyle: React.CSSProperties = {

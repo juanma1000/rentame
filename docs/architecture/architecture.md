@@ -90,6 +90,8 @@ graph TD
 | arrendamiento-app (remote) | Microfrontend privado: inquilino inicia solicitud y adjunta documentos; propietario/agente revisa, aprueba o rechaza; ambas partes firman el contrato electrónico. |
 | pagos-app (remote) | Microfrontend privado para el inquilino: panel de pago mensual (monto, fecha límite, método PSE/tarjeta), historial de pagos y descarga de comprobantes. |
 | @rentame/auth | Paquete compartido expuesto como singleton vía Module Federation 2.0. Provee `AuthProvider`, `useAuth` (user, token, login, logout) y `AuthGuard`. Se declara `singleton: true` en todos los remotes para garantizar una única instancia de React context en runtime. |
+| @rentame/design-tokens | Paquete workspace de solo TypeScript/CSS fuente (sin build step), consumido directamente por `shell` e `inmuebles-app` vía Rspack. Define la paleta de marca (Navy/Petrol Blue/Champagne Gold/Background/Surface/Text/Border/Success/Error/Warning), `--radius-card`/`--radius-sm`/`--radius-lg`, tipografía (`--font-family-base`/`--font-family-display`, escala Display/H1/H2/H3/Body/Small), spacing (`--space-1`..`--space-10`, escala de 4px), sombras (`--shadow-sm`/`--shadow-md`), transiciones (`--transition-base`), z-index (`--z-header`/`--z-modal`) y breakpoints (`--breakpoint-sm/md/lg`), con reglas de contraste WCAG documentadas y validadas por tests (`resuelto en design-system-premium-real-estate`). |
+| @rentame/ui | Paquete workspace nuevo (`design-system-premium-real-estate`), mismo patrón sin build step que `@rentame/auth`/`@rentame/design-tokens` — TypeScript fuente resuelto por Rspack vía symlink de workspace. Provee los componentes React reales del sistema de diseño: `Button` (variantes `primary`/`secondary`/`ghost`/`danger`/`premium`, tamaños `sm`/`md`, estados `loading`/`disabled`), `Badge` (6 variantes: `verified`/`featured`/`new`/`available`/`unavailable`/`premium`), `Input`/`Select`/`Textarea` (estado `error`, `disabled`, foco con `--color-primary`) y `PropertyCard` (foto, dirección/ubicación, características, precio, badge de disponibilidad, slot `acciones` opcional, favorito oculto por defecto). Consumido por `shell` e `inmuebles-app` como `"@rentame/ui": "*"`. Reemplaza los antiguos `styles/buttons.ts` locales de ambos microfrontends. |
 | API Layer (FastAPI) | Adaptadores de entrada HTTP. Validan esquemas Pydantic, extraen JWT, delegan al caso de uso correspondiente. No contienen lógica de negocio. |
 | Application Layer | Casos de uso que orquestan el dominio. Coordinan puertos de salida sin depender de implementaciones concretas. |
 | Dominio | Entidades, objetos de valor, agregados y puertos (interfaces). Contiene las reglas de negocio puras. Sin dependencia de frameworks. |
@@ -822,22 +824,20 @@ frontend/
 │   │   │                              # mínimo deliberadamente duplicado del agencias.api de
 │   │   │                              # inmuebles-app (ver comentario en el archivo, HU-008)
 │   │   ├── layouts/
-│   │   │   ├── AppLayout.tsx           # ui-layout-navegacion: layout único que envuelve TODAS las
-│   │   │   │                          # rutas vía `<Outlet/>` — header con menú consciente de sesión
-│   │   │   │                          # (`useAuth()`: sin sesión → Inicio/Publicar mi inmueble/Iniciar
-│   │   │   │                          # sesión; con sesión → Inicio/Mis inmuebles/Cerrar sesión) y
+│   │   │   ├── AppLayout.tsx           # design-system-premium-real-estate: layout único que envuelve
+│   │   │   │                          # TODAS las rutas vía `<Outlet/>` — navbar Navy (`--color-primary`
+│   │   │   │                          # de fondo) con menú consciente de sesión (`useAuth()`: sin
+│   │   │   │                          # sesión → Inicio/Publicar mi inmueble/Iniciar sesión; con
+│   │   │   │                          # sesión → Inicio/Mis inmuebles/Cerrar sesión); el link de la
+│   │   │   │                          # ruta activa (`useLocation()`) se resalta con
+│   │   │   │                          # `border-bottom: 2px solid var(--color-accent)` (acento dorado,
+│   │   │   │                          # nunca fill sólido — regla de contraste de `design-tokens`),
+│   │   │   │                          # `Button`/ícono `lucide-react` (logout) de `@rentame/ui`, y
 │   │   │   │                          # footer de marca. Centraliza la lógica que antes vivía
 │   │   │   │                          # duplicada en `BusquedaPublicaShellPage`
 │   │   │   └── PrivateLayout.tsx       # `AuthGuard` con fallback a "/"; se anida DENTRO de
 │   │   │                              # `AppLayout` solo para el árbol de rutas protegidas
 │   │   │                              # (`/mis-inmuebles`) — no reemplaza a `AppLayout`, lo complementa
-│   │   ├── styles/
-│   │   │   └── buttons.ts              # ui-layout-navegacion: `primaryButtonStyle`/
-│   │   │                              # `secondaryButtonStyle` con tokens de `@rentame/design-tokens`
-│   │   │                              # (`var(--color-primary)`, `var(--color-border)`,
-│   │   │                              # `var(--radius-card)`). Archivo LOCAL de este microfrontend,
-│   │   │                              # no compartido con `inmuebles-app` — mismo criterio que
-│   │   │                              # `agencias.api.ts` duplicado (ver Decisiones clave)
 │   │   └── remotes.d.ts                # Declaraciones de tipos para módulos remotos
 │   ├── rspack.config.ts                # MF2 host config: remotes[], shared (react, @rentame/auth);
 │   │                                  # output.publicPath: '/' (absoluto, no 'auto' — ver sección 6)
@@ -880,43 +880,57 @@ frontend/
 │   │   │                              # y siempre visible (nunca oculto), genera miniaturas vía
 │   │   │                              # `URL.createObjectURL` (revocadas en cleanup de `useEffect`)
 │   │   │                              # y expone `onFilesSelected(files)` tanto para `onChange`
-│   │   │                              # como para `onDrop`; usado por `PublicarInmueblePage`
+│   │   │                              # como para `onDrop`; usado por `PublicarInmueblePage`;
+│   │   │                              # migrado en design-system-premium-real-estate a íconos
+│   │   │                              # `ImagePlus`/`Upload` de `lucide-react` (antes solo texto)
 │   │   ├── pages/
-│   │   │   ├── BusquedaPublicaPage.tsx     # HU-003: listado público (sin sesión) — solo inmuebles
-│   │   │   │                              # estado=disponible; tarjeta con foto, barrio, valor,
-│   │   │   │                              # habitaciones y baños; sin filtros en v1
-│   │   │   ├── InmuebleDetallePublicoPage.tsx # HU-003: detalle público completo (todas las fotos,
-│   │   │   │                              # descripción, datos del formulario); sin sesión
+│   │   │   ├── BusquedaPublicaPage.tsx     # HU-003, migrado en design-system-premium-real-estate:
+│   │   │   │                              # listado público (sin sesión) — solo inmuebles
+│   │   │   │                              # estado=disponible; usa `PropertyCard` de `@rentame/ui`
+│   │   │   │                              # (antes `<li>` ad-hoc), título con tipografía serif;
+│   │   │   │                              # sin filtros en v1
+│   │   │   ├── InmuebleDetallePublicoPage.tsx # HU-003, migrado en design-system-premium-real-estate:
+│   │   │   │                              # detalle público completo (todas las fotos, descripción,
+│   │   │   │                              # datos del formulario); título serif, `Button` de
+│   │   │   │                              # `@rentame/ui` para "Volver"; sin sesión
 │   │   │   ├── PublicarInmueblePage.tsx    # Formulario de publicación; selector de propietario
 │   │   │   │                              # condicional por rol (agente, HU-002); ui-formulario-inmueble:
-│   │   │   │                              # restyle con tarjeta/secciones/grid vía `styles/forms.ts`,
-│   │   │   │                              # integra `FotoDropzone`, preview de moneda, hint de campos
-│   │   │   │                              # faltantes y pantalla de éxito con ícono
+│   │   │   │                              # tarjeta/secciones/grid vía `styles/forms.ts`, integra
+│   │   │   │                              # `FotoDropzone`, preview de moneda, hint de campos faltantes;
+│   │   │   │                              # migrado en design-system-premium-real-estate a
+│   │   │   │                              # `Input`/`Select`/`Textarea`/`Button` de `@rentame/ui`
+│   │   │   │                              # (reemplazan `inputStyle`/`selectStyle`/`textareaStyle`/
+│   │   │   │                              # `styles/buttons.ts` locales), ícono `<Check />` de
+│   │   │   │                              # `lucide-react` en la pantalla de éxito (antes "✓" en texto)
 │   │   │   ├── EditarInmueblePage.tsx      # Edición — recibe el inmueble por prop, no por fetch;
-│   │   │   │                              # ui-formulario-inmueble: mismo restyle que Publicar
-│   │   │   │                              # (`styles/forms.ts`, secciones, grid, preview de moneda,
-│   │   │   │                              # éxito con ícono), sin dropzone de fotos
-│   │   │   ├── MisInmueblesPage.tsx        # Panel del propietario: listado + estados + acciones
-│   │   │   └── InmueblesGestionadosPage.tsx# Panel del agente (HU-002): cartera de su agencia
+│   │   │   │                              # mismo layout que Publicar (`styles/forms.ts`, secciones,
+│   │   │   │                              # grid, preview de moneda) y misma migración a
+│   │   │   │                              # `Input`/`Select`/`Textarea`/`Button`/`<Check />` de
+│   │   │   │                              # `@rentame/ui`+`lucide-react`, sin dropzone de fotos
+│   │   │   ├── MisInmueblesPage.tsx        # Panel del propietario: listado + estados + acciones;
+│   │   │   │                              # migrado en design-system-premium-real-estate a
+│   │   │   │                              # `PropertyCard` de `@rentame/ui` con slot `acciones`
+│   │   │   │                              # (Despublicar/Republicar/Editar, íconos `lucide-react`)
+│   │   │   │                              # y `Badge` de disponibilidad
+│   │   │   └── InmueblesGestionadosPage.tsx# Panel del agente (HU-002): cartera de su agencia; misma
+│   │   │                                  # migración a `PropertyCard`/`Badge`/íconos que MisInmueblesPage
 │   │   ├── services/
 │   │   │   ├── inmuebles.api.ts        # publicarInmueble(), editarInmueble(), cambiarDisponibilidad(),
 │   │   │   │                          # listarMisInmuebles(), listarInmueblesGestionados(),
 │   │   │   │                          # listarPublicos(), obtenerPublico(id) (HU-003 — sin token)
 │   │   │   └── agencias.api.ts         # listarPropietariosVinculados() — GET /agencias/mia/propietarios
-│   │   ├── styles/
-│   │   │   ├── buttons.ts              # ui-layout-navegacion: mismo patrón que
-│   │   │   │                          # `frontend/shell/src/styles/buttons.ts` (`primaryButtonStyle`/
-│   │   │   │                          # `secondaryButtonStyle` con tokens), pero archivo LOCAL propio
-│   │   │   │                          # de este microfrontend — no se importa entre `shell` e
-│   │   │   │                          # `inmuebles-app` (ver Decisiones clave)
-│   │   │   ├── forms.ts                # ui-formulario-inmueble: estilos compartidos de
+│   │   ├── styles/                     # `buttons.ts` fue retirado en `design-system-premium-real-estate`
+│   │   │                              # (reemplazado por `Button` de `@rentame/ui`); `forms.ts`/
+│   │   │                              # `forms.css` siguen vigentes — cubren layout de secciones/grid
+│   │   │                              # sin equivalente en `@rentame/ui` (fuera de alcance de ese change)
+│   │   │   ├── forms.ts                # ui-formulario-inmueble: estilos de layout compartidos de
 │   │   │   │                          # `PublicarInmueblePage`/`EditarInmueblePage` con tokens de
 │   │   │   │                          # `@rentame/design-tokens` (`cardStyle`, `sectionStyle`,
-│   │   │   │                          # `sectionTitleStyle`, `gridRowStyle`, `inputStyle`/
-│   │   │   │                          # `selectStyle`/`textareaStyle`, `FIELD_CLASS_NAME`);
-│   │   │   │                          # reemplaza `containerStyle`/`fieldStyle` duplicados
-│   │   │   └── forms.css               # Reglas `:focus` para `FIELD_CLASS_NAME` (no expresable
-│   │   │                              # como inline style), importado por `styles/forms.ts`
+│   │   │   │                          # `sectionTitleStyle`, `gridRowStyle`); los estilos de `input`/
+│   │   │   │                          # `select`/`textarea` que antes vivían aquí fueron reemplazados
+│   │   │   │                          # por `Input`/`Select`/`Textarea` de `@rentame/ui`
+│   │   │   └── forms.css               # Reglas de layout/foco residuales no cubiertas por
+│   │   │                              # `@rentame/ui`, importado por `styles/forms.ts`
 │   │   ├── BusquedaPublicaRoutes.tsx   # HU-003: expuesto vía Module Federation
 │   │   │                              # (./BusquedaPublicaRoutes) — state machine local listado↔detalle,
 │   │   │                              # consumido por shell/src/pages/BusquedaPublicaShellPage.tsx
@@ -988,14 +1002,45 @@ frontend/
 │   └── tsconfig.json
 │
 └── packages/
-    └── auth/                             # @rentame/auth — singleton compartido vía MF2
+    ├── auth/                             # @rentame/auth — singleton compartido vía MF2
+    │   ├── src/
+    │   │   ├── AuthProvider.tsx          # React context: provee estado de sesión a toda la app
+    │   │   ├── useAuth.ts                # Hook: { user, token, isAuthenticated, login, logout }
+    │   │   ├── AuthGuard.tsx             # HOC/wrapper: redirige a /login si no hay sesión activa
+    │   │   └── auth.types.ts             # User, Token, Role (owner | agent | tenant), AuthState
+    │   ├── package.json                  # name: "@rentame/auth"
+    │   └── tsconfig.json
+    │
+    ├── design-tokens/                    # @rentame/design-tokens — paleta y tokens de estilo
+    │   ├── src/
+    │   │   ├── tokens.css                # Variables CSS: color, tipografía, spacing, radios,
+    │   │   │                            # sombras, transiciones, z-index, breakpoints
+    │   │   ├── tokens.ts                 # Export TS de los mismos valores (uso fuera de CSS)
+    │   │   └── __tests__/
+    │   │       ├── contrast.test.ts      # Reglas de contraste WCAG entre pares de colores
+    │   │       └── tokens.test.ts        # Escala exacta de spacing (4/8/12/16/20/24/32/40/48/64), etc.
+    │   ├── package.json                  # name: "@rentame/design-tokens"
+    │   └── README.md                     # Tabla de cada token con su valor y regla de uso derivada
+    │
+    └── ui/                               # @rentame/ui (design-system-premium-real-estate) — sistema
+        │                                # de componentes React compartido, mismo patrón sin build
+        │                                # step que `auth`/`design-tokens`
         ├── src/
-        │   ├── AuthProvider.tsx          # React context: provee estado de sesión a toda la app
-        │   ├── useAuth.ts                # Hook: { user, token, isAuthenticated, login, logout }
-        │   ├── AuthGuard.tsx             # HOC/wrapper: redirige a /login si no hay sesión activa
-        │   └── auth.types.ts             # User, Token, Role (owner | agent | tenant), AuthState
-        ├── package.json                  # name: "@rentame/auth"
-        └── tsconfig.json
+        │   ├── Button.tsx / button.css   # variantes primary/secondary/ghost/danger/premium,
+        │   │                            # tamaños sm/md, estados loading/disabled, hover/focus-visible
+        │   ├── Badge.tsx                 # 6 variantes: verified/featured/new/available/
+        │   │                            # unavailable/premium (solo available/unavailable en producción)
+        │   ├── Input.tsx / Select.tsx / Textarea.tsx / fieldStyles.ts / input.css
+        │   │                            # estado error, disabled, foco con --color-primary
+        │   ├── PropertyCard.tsx          # foto, dirección/ubicación, características, precio,
+        │   │                            # badge de disponibilidad, slot `acciones?`, favorito oculto
+        │   │                            # por defecto (`showFavorito?`)
+        │   ├── __tests__/
+        │   └── index.ts
+        ├── package.json                  # name: "@rentame/ui"; deps: @rentame/design-tokens,
+        │                                # lucide-react; peerDeps: react/react-dom
+        └── README.md                     # documenta convención de props explícitas (sin className
+                                          # libre) y las variantes de Badge reservadas sin uso todavía
 ```
 
 **Convención Module Federation 2.0 — ejemplo de config de remote:**
@@ -1047,7 +1092,8 @@ export default {
 | Canal de notificaciones | Email (canal inicial) | Cubre todos los eventos críticos del flujo. Push nativo requeriría Service Worker o app nativa — inviable para MVP unipersonal. El puerto de email permite agregar SMS/WhatsApp a futuro. |
 | Slicing de código — backend | Por dominio/feature (`usuarios/`, `inmuebles/`, `identidad/`, `arrendamiento/`, `riesgo/`, `pagos/`) | Mejora cohesión: todo lo relacionado a `pagos/` vive junto. Facilita crecimiento independiente de cada dominio. Reduce acoplamiento accidental entre features. |
 | Estado de servidor en frontend | React Query por remote | Cada remote gestiona su propio caché de servidor con React Query. El estado global de sesión (auth) queda centralizado en `@rentame/auth`. No se introduce Zustand adicional — el hook `useAuth` del singleton cubre el estado global necesario para el MVP. |
-| Componentes UI compartidos entre `shell` e `inmuebles-app` | Sin paquete compartido — cada microfrontend define su propio `src/styles/buttons.ts` local (`primaryButtonStyle`/`secondaryButtonStyle`) | Resuelto en `ui-layout-navegacion`: crear y versionar un paquete de componentes UI compartido es una inversión mayor no justificada aún por la cantidad de estilos duplicados (dos constantes de botón). Se aplica el mismo criterio ya usado para `agencias.api.ts` duplicado entre `shell` e `inmuebles-app` (HU-008): duplicación mínima y deliberada en vez de coordinar versionado entre remotes independientes. |
+| Componentes UI compartidos entre `shell` e `inmuebles-app` | Paquete workspace `@rentame/ui` (`Button`, `Badge`, `Input`/`Select`/`Textarea`, `PropertyCard`), sin build step, mismo patrón que `@rentame/auth`/`@rentame/design-tokens` | Resuelto en `design-system-premium-real-estate`, revirtiendo la decisión previa de `ui-layout-navegacion` (duplicar `src/styles/buttons.ts` en cada microfrontend): al crecer el número de componentes reales (no solo constantes de estilo de botón) más allá de un par de archivos, el paquete compartido deja de ser sobre-ingeniería y evita divergencia visual entre `shell` e `inmuebles-app`. Props explícitas y tipadas, sin `className`/`style` libre desde el caller, para mantener el sistema consistente. `agencias.api.ts` sigue duplicado deliberadamente (no es UI) — ver fila de `agencias.api.ts` implícita en HU-008. |
+| Íconos y tipografía compartidos | `lucide-react` (SVG tree-shakeable) + `@fontsource/inter`/`@fontsource/dm-serif-display` autohospedadas, importadas una vez desde `bootstrap.tsx` de cada microfrontend | Resuelto en `design-system-premium-real-estate`: reemplaza el uso de emoji/texto plano ("✓") por íconos reales; fuentes autohospedadas evitan una llamada de red externa a Google Fonts, consistente con el resto del proyecto. |
 
 ---
 

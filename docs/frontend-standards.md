@@ -66,7 +66,8 @@ Este documento describe las mejores prácticas, convenciones y estándares usado
 - **Bootstrap 5 + React Bootstrap**: Framework CSS para diseño responsive *(ajustar si el proyecto usa un design system propio — por ejemplo, uno basado en la paleta de marca corporativa en vez de Bootstrap puro)*
 - **React Bootstrap Icons**: Librería de íconos
 - **React DatePicker**: Componentes de selección de fecha
-- **`@rentame/design-tokens`**: Paquete compartido con los tokens de color de marca y estilo base (`border-radius`). Ver `frontend/packages/design-tokens/README.md` para el valor de cada token y sus reglas de uso derivadas de contraste WCAG (ej. qué colores no combinar) antes de escribir estilos nuevos en cualquier microfrontend
+- **`@rentame/design-tokens`**: Paquete compartido con los tokens de color de marca, tipografía, spacing, radios, sombras, transiciones, z-index y breakpoints. Ver `frontend/packages/design-tokens/README.md` para el valor de cada token y sus reglas de uso derivadas de contraste WCAG (ej. qué colores no combinar) antes de escribir estilos nuevos en cualquier microfrontend
+- **`@rentame/ui`**: Sistema de componentes de referencia (`Button`, `Badge`, `Input`/`Select`/`Textarea`, `PropertyCard`), consumido por `shell` e `inmuebles-app`. Usar estos componentes en vez de estilos inline o markup ad-hoc para cualquier UI nueva de botones, badges, campos de formulario o tarjetas de inmueble — ver `frontend/packages/ui/README.md` antes de extenderlo o de crear un componente ad-hoc equivalente
 
 ### Manejo de Estado y Flujo de Datos
 - **React Hooks**: `useState`, `useEffect` para estado local

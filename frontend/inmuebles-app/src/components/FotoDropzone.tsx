@@ -1,5 +1,6 @@
 import type { ChangeEvent, DragEvent } from 'react';
 import { useEffect, useState } from 'react';
+import { ImagePlus } from 'lucide-react';
 
 /**
  * Dropzone de fotos para el formulario de publicación de inmuebles
@@ -82,7 +83,11 @@ export default function FotoDropzone({ id, fotos, maxFotos, onFilesSelected }: F
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
-      <label htmlFor={id} style={{ cursor: 'pointer' }}>
+      <label
+        htmlFor={id}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+      >
+        <ImagePlus size={20} aria-hidden="true" />
         Arrastra tus fotos aquí o hacé clic para seleccionar
       </label>
       <input

@@ -15,22 +15,14 @@
  */
 import React, { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '@rentame/auth';
+import { Button, Input, Select, Textarea } from '@rentame/ui';
+import { Check } from 'lucide-react';
 import { InmueblesApiError, publicarInmueble } from '../services/inmuebles.api';
 import type { PublicarInmuebleInput } from '../services/inmuebles.api';
 import { listarPropietariosVinculados } from '../services/agencias.api';
 import type { PropietarioVinculado } from '../services/agencias.api';
-import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
 import FotoDropzone from '../components/FotoDropzone';
-import {
-  cardStyle,
-  FIELD_CLASS_NAME,
-  gridRowStyle,
-  inputStyle,
-  sectionStyle,
-  sectionTitleStyle,
-  selectStyle,
-  textareaStyle,
-} from '../styles/forms';
+import { cardStyle, gridRowStyle, sectionStyle, sectionTitleStyle } from '../styles/forms';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -206,11 +198,12 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
       <div style={containerStyle}>
         <div style={successStyle}>
           <span data-testid="icono-exito" aria-hidden="true" style={successIconStyle}>
-            ✓
+            <Check size={20} />
           </span>
           <p>El inmueble fue publicado exitosamente.</p>
         </div>
-        <button
+        <Button
+          variant="secondary"
           onClick={() => {
             setPublished(false);
             setFields(EMPTY_FORM);
@@ -218,10 +211,9 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
             setFotoError(null);
             setSubmitError(null);
           }}
-          style={secondaryButtonStyle}
         >
           Publicar otro
-        </button>
+        </Button>
       </div>
     );
   }
@@ -244,9 +236,9 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
   return (
     <div style={containerStyle}>
       {onVolver && (
-        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
+        <Button type="button" variant="secondary" onClick={onVolver}>
           Volver a mis inmuebles
-        </button>
+        </Button>
       )}
       <h1>Publicar inmueble</h1>
       <div style={cardStyle}>
@@ -256,12 +248,10 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
             <div style={fieldStyle}>
               <label htmlFor="pub-direccion">Dirección</label>
-              <input
+              <Input
                 id="pub-direccion"
                 name="direccion"
                 type="text"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.direccion}
                 onChange={handleFieldChange}
               />
@@ -269,12 +259,10 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
             <div style={fieldStyle}>
               <label htmlFor="pub-barrio">Barrio</label>
-              <input
+              <Input
                 id="pub-barrio"
                 name="barrio"
                 type="text"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.barrio}
                 onChange={handleFieldChange}
               />
@@ -282,12 +270,10 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
             <div style={fieldStyle}>
               <label htmlFor="pub-ciudad">Ciudad</label>
-              <input
+              <Input
                 id="pub-ciudad"
                 name="ciudad"
                 type="text"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.ciudad}
                 onChange={handleFieldChange}
               />
@@ -299,11 +285,9 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
             <div style={fieldStyle}>
               <label htmlFor="pub-tipo">Tipo de inmueble</label>
-              <select
+              <Select
                 id="pub-tipo"
                 name="tipo"
-                className={FIELD_CLASS_NAME}
-                style={selectStyle}
                 value={fields.tipo}
                 onChange={handleFieldChange}
               >
@@ -313,20 +297,18 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
                 <option value="local">Local comercial</option>
                 <option value="oficina">Oficina</option>
                 <option value="bodega">Bodega</option>
-              </select>
+              </Select>
             </div>
 
             <div style={gridRowStyle}>
               <div style={fieldStyle}>
                 <label htmlFor="pub-areaM2">Área en m²</label>
-                <input
+                <Input
                   id="pub-areaM2"
                   name="areaM2"
                   type="number"
                   min="1"
                   step="0.01"
-                  className={FIELD_CLASS_NAME}
-                  style={inputStyle}
                   value={fields.areaM2}
                   onChange={handleFieldChange}
                 />
@@ -334,13 +316,11 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
               <div style={fieldStyle}>
                 <label htmlFor="pub-habitaciones">Habitaciones</label>
-                <input
+                <Input
                   id="pub-habitaciones"
                   name="habitaciones"
                   type="number"
                   min="0"
-                  className={FIELD_CLASS_NAME}
-                  style={inputStyle}
                   value={fields.habitaciones}
                   onChange={handleFieldChange}
                 />
@@ -348,13 +328,11 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
               <div style={fieldStyle}>
                 <label htmlFor="pub-banos">Baños</label>
-                <input
+                <Input
                   id="pub-banos"
                   name="banos"
                   type="number"
                   min="0"
-                  className={FIELD_CLASS_NAME}
-                  style={inputStyle}
                   value={fields.banos}
                   onChange={handleFieldChange}
                 />
@@ -367,13 +345,11 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
             <div style={fieldStyle}>
               <label htmlFor="pub-valorMensual">Valor mensual</label>
-              <input
+              <Input
                 id="pub-valorMensual"
                 name="valorMensual"
                 type="number"
                 min="1"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.valorMensual}
                 onChange={handleFieldChange}
               />
@@ -384,12 +360,10 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
             <div style={fieldStyle}>
               <label htmlFor="pub-descripcion">Descripción</label>
-              <textarea
+              <Textarea
                 id="pub-descripcion"
                 name="descripcion"
                 rows={4}
-                className={FIELD_CLASS_NAME}
-                style={textareaStyle}
                 value={fields.descripcion}
                 onChange={handleFieldChange}
               />
@@ -401,10 +375,8 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
               <h2 style={sectionTitleStyle}>Propietario</h2>
               <div style={fieldStyle}>
                 <label htmlFor="pub-propietario">Propietario</label>
-                <select
+                <Select
                   id="pub-propietario"
-                  className={FIELD_CLASS_NAME}
-                  style={selectStyle}
                   value={propietarioId}
                   onChange={(e) => setPropietarioId(e.target.value)}
                 >
@@ -416,7 +388,7 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
                         {p.propietarioEmail}
                       </option>
                     ))}
-                </select>
+                </Select>
               </div>
             </section>
           )}
@@ -446,13 +418,9 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={!isFormReady || isSubmitting}
-            style={primaryButtonStyle}
-          >
+          <Button type="submit" variant="primary" disabled={!isFormReady || isSubmitting}>
             {isSubmitting ? 'Publicando...' : 'Publicar'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

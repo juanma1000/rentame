@@ -9,6 +9,8 @@
  * `BusquedaPublicaRoutes`) own navigation.
  */
 import React, { useEffect, useState } from 'react';
+import { typography } from '@rentame/design-tokens';
+import { PropertyCard } from '@rentame/ui';
 import { InmueblesApiError, listarPublicos } from '../services/inmuebles.api';
 import type { InmueblePublico } from '../services/inmuebles.api';
 
@@ -24,10 +26,6 @@ interface Props {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatValor(valor: number): string {
-  return valor.toLocaleString('es-CO');
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -77,34 +75,31 @@ const BusquedaPublicaPage: React.FC<Props> = ({ onVerDetalle }) => {
 
   return (
     <div style={containerStyle}>
-      <h1>Inmuebles disponibles</h1>
+      <h1 style={titleStyle}>Inmuebles disponibles</h1>
       <ul style={gridStyle}>
         {inmuebles.map((inmueble) => (
-          // `direccion` is rendered as a bare text node (no wrapping element)
-          // deliberately: the fixtures used in tests embed digits in the
-          // address itself (e.g. "Calle 10 # 20-30"), which would otherwise
-          // collide with the habitaciones/banos digit assertions scoped to
-          // this same card via `within(card)`.
+          // The click handler is placed on the `<li>` itself (not only on
+          // `PropertyCard`'s inner `onClick`) so that `fireEvent.click`
+          // fired directly on the `<li>` (as `cardFor` resolves it in the
+          // test suite) reliably triggers navigation — a click dispatched
+          // on an element only bubbles up through ancestors, not down into
+          // descendants, so a handler solely on the inner card `<div>`
+          // would never fire for a click targeted at the `<li>` wrapper.
           <li
             key={inmueble.id}
-            style={cardStyle}
+            style={{ cursor: 'pointer' }}
             onClick={() => onVerDetalle(inmueble.id)}
           >
-            {inmueble.fotoPrincipal !== null && (
-              <img
-                src={inmueble.fotoPrincipal}
-                alt={inmueble.direccion}
-                style={fotoStyle}
-              />
-            )}
-            <span>{inmueble.direccion}</span>
-            <span style={ubicacionStyle}>
-              {inmueble.barrio}, {inmueble.ciudad}
-            </span>
-            <span style={detallesStyle}>
-              ${formatValor(inmueble.valorMensual)} / mes · {inmueble.habitaciones} hab ·{' '}
-              {inmueble.banos} baños
-            </span>
+            <PropertyCard
+              direccion={inmueble.direccion}
+              barrio={inmueble.barrio}
+              ciudad={inmueble.ciudad}
+              habitaciones={inmueble.habitaciones}
+              banos={inmueble.banos}
+              valorMensual={inmueble.valorMensual}
+              fotoUrl={inmueble.fotoPrincipal}
+              estado="disponible"
+            />
           </li>
         ))}
       </ul>
@@ -132,32 +127,9 @@ const gridStyle: React.CSSProperties = {
   gap: '1rem',
 };
 
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-card)',
-  padding: '1rem',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.35rem',
-  cursor: 'pointer',
-};
-
-const fotoStyle: React.CSSProperties = {
-  width: '100%',
-  height: '160px',
-  objectFit: 'cover',
-  borderRadius: 'var(--radius-card)',
-};
-
-const ubicacionStyle: React.CSSProperties = {
-  color: 'var(--color-text-secondary, #6b7280)',
-  fontSize: '0.9rem',
-};
-
-const detallesStyle: React.CSSProperties = {
-  fontSize: '0.9rem',
-  fontWeight: 600,
-  color: 'var(--color-primary)',
+const titleStyle: React.CSSProperties = {
+  fontFamily: typography.fontFamilyDisplay,
+  fontSize: typography.fontSizeH1,
 };
 
 export default BusquedaPublicaPage;

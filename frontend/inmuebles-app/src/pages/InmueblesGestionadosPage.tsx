@@ -3,11 +3,11 @@
  * autenticado.
  *
  * Fetches the agente's managed listings via `listarInmueblesGestionados(token)`
- * on mount and renders them as a list.  Each card shows a human-readable status
- * badge and, when `onEditar` is provided, an "Editar" button (same optional
- * pattern as MisInmueblesPage).  When `onPublicar` is provided, a "Publicar
- * nuevo inmueble" button is rendered — agents can publish on behalf of a
- * property owner per HU-002.
+ * on mount and renders them as a list of `PropertyCard` (from `@rentame/ui`).
+ * Each card shows a human-readable status badge and, when `onEditar` is
+ * provided, an "Editar" button (same optional pattern as `MisInmueblesPage`).
+ * When `onPublicar` is provided, a "Publicar nuevo inmueble" button is
+ * rendered — agents can publish on behalf of a property owner per HU-002.
  *
  * Status badge mapping (per `EstadoInmueble` in
  * `backend/inmuebles/domain/inmueble.py`):
@@ -15,11 +15,14 @@
  *   - `"no_disponible"` → "No disponible"
  *   - `"oculto"`        → "Despublicado"
  */
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { Pencil } from 'lucide-react';
 import { useAuth } from '@rentame/auth';
+import { Button, PropertyCard } from '@rentame/ui';
+import type { PropertyCardEstado } from '@rentame/ui';
+import { typography } from '@rentame/design-tokens';
 import { InmueblesApiError, listarInmueblesGestionados } from '../services/inmuebles.api';
-import type { Inmueble } from '../services/inmuebles.api';
-import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
+import type { FotoInmueble, Inmueble } from '../services/inmuebles.api';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -49,21 +52,30 @@ const ESTADO_LABELS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getFotoUrl(fotos: FotoInmueble[]): string | null {
+  const principal = fotos.find((foto) => foto.esPrincipal) ?? fotos[0];
+  return principal?.urlStorage ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const InmueblesGestionadosPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
   const { session } = useAuth();
 
-  const [inmuebles, setInmuebles] = useState<Inmueble[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [inmuebles, setInmuebles] = React.useState<Inmueble[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   // -------------------------------------------------------------------------
   // Fetch on mount
   // -------------------------------------------------------------------------
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!session) {
       setLoading(false);
       return;
@@ -105,9 +117,9 @@ const InmueblesGestionadosPage: React.FC<Props> = ({ onPublicar, onEditar }) => 
     return (
       <div style={containerStyle}>
         {onPublicar && (
-          <button type="button" style={primaryButtonStyle} onClick={onPublicar}>
+          <Button variant="primary" onClick={onPublicar}>
             Publicar nuevo inmueble
-          </button>
+          </Button>
         )}
         <p>No gestionás ningún inmueble.</p>
       </div>
@@ -116,30 +128,40 @@ const InmueblesGestionadosPage: React.FC<Props> = ({ onPublicar, onEditar }) => 
 
   return (
     <div style={containerStyle}>
-      <h1>Inmuebles que gestiono</h1>
+      <h1 style={titleStyle}>Inmuebles que gestiono</h1>
       {onPublicar && (
-        <button type="button" style={primaryButtonStyle} onClick={onPublicar}>
+        <Button variant="primary" onClick={onPublicar}>
           Publicar nuevo inmueble
-        </button>
+        </Button>
       )}
       <ul style={listStyle}>
         {inmuebles.map((inmueble) => (
-          <li key={inmueble.id} style={cardStyle}>
-            <span style={direccionStyle}>{inmueble.direccion}</span>
-            <span style={badgeStyle(inmueble.estado)}>
-              {ESTADO_LABELS[inmueble.estado] ?? inmueble.estado}
-            </span>
-            {onEditar && (
-              <div style={actionsStyle}>
-                <button
-                  type="button"
-                  style={secondaryButtonStyle}
-                  onClick={() => onEditar(inmueble)}
-                >
-                  Editar
-                </button>
-              </div>
-            )}
+          <li key={inmueble.id} style={listItemStyle}>
+            <PropertyCard
+              direccion={inmueble.direccion}
+              barrio={inmueble.barrio}
+              ciudad={inmueble.ciudad}
+              habitaciones={inmueble.habitaciones}
+              banos={inmueble.banos}
+              valorMensual={inmueble.valorMensual}
+              fotoUrl={getFotoUrl(inmueble.fotos)}
+              estado={inmueble.estado as PropertyCardEstado}
+              estadoLabel={ESTADO_LABELS[inmueble.estado] ?? inmueble.estado}
+              acciones={
+                onEditar && (
+                  <div
+                    style={accionesStyle}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                    }}
+                  >
+                    <Button variant="secondary" onClick={() => onEditar(inmueble)}>
+                      <Pencil size={16} /> Editar
+                    </Button>
+                  </div>
+                )
+              }
+            />
           </li>
         ))}
       </ul>
@@ -148,14 +170,19 @@ const InmueblesGestionadosPage: React.FC<Props> = ({ onPublicar, onEditar }) => 
 };
 
 // ---------------------------------------------------------------------------
-// Styles (inline — consistent with MisInmueblesPage)
+// Styles
 // ---------------------------------------------------------------------------
 
 const containerStyle: React.CSSProperties = {
-  fontFamily: 'sans-serif',
+  fontFamily: typography.fontFamilyBase,
   padding: '2rem',
   maxWidth: '640px',
   margin: '0 auto',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontFamily: typography.fontFamilyDisplay,
+  fontSize: typography.fontSizeH1,
 };
 
 const listStyle: React.CSSProperties = {
@@ -167,55 +194,14 @@ const listStyle: React.CSSProperties = {
   gap: '1rem',
 };
 
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-card)',
-  padding: '1rem',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5rem',
+const listItemStyle: React.CSSProperties = {
+  listStyle: 'none',
 };
 
-const direccionStyle: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: '1rem',
-};
-
-// disponible/no_disponible mapean 1:1 a los tokens semánticos success/error —
-// fondo suave vía color-mix() sobre --color-surface (recomendado en el README
-// del paquete de tokens) con el texto en el color sólido para mantener el
-// contraste. "oculto" y el fallback no tienen token equivalente (no existe un
-// token de warning/neutral en el paquete) — se mantienen como hex literal.
-const BADGE_COLORS: Record<string, React.CSSProperties> = {
-  disponible: {
-    backgroundColor: 'color-mix(in srgb, var(--color-success) 18%, var(--color-surface))',
-    color: 'var(--color-success)',
-  },
-  no_disponible: {
-    backgroundColor: 'color-mix(in srgb, var(--color-error) 18%, var(--color-surface))',
-    color: 'var(--color-error)',
-  },
-  oculto: { backgroundColor: '#fff3cd', color: '#856404' },
-};
-
-function badgeStyle(estado: string): React.CSSProperties {
-  // Estado desconocido/no mapeado: gris neutro sin token equivalente, se deja hardcoded.
-  const colors = BADGE_COLORS[estado] ?? { backgroundColor: '#e2e3e5', color: '#383d41' };
-  return {
-    display: 'inline-block',
-    padding: '0.15rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.85rem',
-    fontWeight: 500,
-    alignSelf: 'flex-start',
-    ...colors,
-  };
-}
-
-const actionsStyle: React.CSSProperties = {
+const accionesStyle: React.CSSProperties = {
   display: 'flex',
   gap: '0.5rem',
-  marginTop: '0.25rem',
+  flexWrap: 'wrap',
 };
 
 export default InmueblesGestionadosPage;

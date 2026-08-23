@@ -23,19 +23,11 @@
  */
 import React, { ChangeEvent, FormEvent, useState } from 'react';
 import { useAuth } from '@rentame/auth';
+import { Button, Input, Select, Textarea } from '@rentame/ui';
+import { Check } from 'lucide-react';
 import { editarInmueble, InmueblesApiError } from '../services/inmuebles.api';
 import type { EditarInmuebleInput, Inmueble } from '../services/inmuebles.api';
-import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
-import {
-  cardStyle,
-  FIELD_CLASS_NAME,
-  gridRowStyle,
-  inputStyle,
-  sectionStyle,
-  sectionTitleStyle,
-  selectStyle,
-  textareaStyle,
-} from '../styles/forms';
+import { cardStyle, gridRowStyle, sectionStyle, sectionTitleStyle } from '../styles/forms';
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -166,7 +158,7 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
       <div style={containerStyle}>
         <div style={successStyle}>
           <span data-testid="icono-exito" aria-hidden="true" style={successIconStyle}>
-            ✓
+            <Check size={20} />
           </span>
           <p>El inmueble fue actualizado exitosamente.</p>
         </div>
@@ -190,9 +182,9 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
   return (
     <div style={containerStyle}>
       {onVolver && (
-        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
+        <Button type="button" variant="secondary" onClick={onVolver}>
           Volver a mis inmuebles
-        </button>
+        </Button>
       )}
       <h1>Editar inmueble</h1>
       <div style={cardStyle}>
@@ -202,12 +194,10 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
             <div style={fieldStyle}>
               <label htmlFor="edit-direccion">Dirección</label>
-              <input
+              <Input
                 id="edit-direccion"
                 name="direccion"
                 type="text"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.direccion}
                 onChange={handleFieldChange}
               />
@@ -215,12 +205,10 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
             <div style={fieldStyle}>
               <label htmlFor="edit-barrio">Barrio</label>
-              <input
+              <Input
                 id="edit-barrio"
                 name="barrio"
                 type="text"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.barrio}
                 onChange={handleFieldChange}
               />
@@ -228,12 +216,10 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
             <div style={fieldStyle}>
               <label htmlFor="edit-ciudad">Ciudad</label>
-              <input
+              <Input
                 id="edit-ciudad"
                 name="ciudad"
                 type="text"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.ciudad}
                 onChange={handleFieldChange}
               />
@@ -245,11 +231,9 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
             <div style={fieldStyle}>
               <label htmlFor="edit-tipo">Tipo de inmueble</label>
-              <select
+              <Select
                 id="edit-tipo"
                 name="tipo"
-                className={FIELD_CLASS_NAME}
-                style={selectStyle}
                 value={fields.tipo}
                 onChange={handleFieldChange}
               >
@@ -259,20 +243,18 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
                 <option value="local">Local comercial</option>
                 <option value="oficina">Oficina</option>
                 <option value="bodega">Bodega</option>
-              </select>
+              </Select>
             </div>
 
             <div style={gridRowStyle}>
               <div style={fieldStyle}>
                 <label htmlFor="edit-areaM2">Área en m²</label>
-                <input
+                <Input
                   id="edit-areaM2"
                   name="areaM2"
                   type="number"
                   min="1"
                   step="0.01"
-                  className={FIELD_CLASS_NAME}
-                  style={inputStyle}
                   value={fields.areaM2}
                   onChange={handleFieldChange}
                 />
@@ -280,13 +262,11 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
               <div style={fieldStyle}>
                 <label htmlFor="edit-habitaciones">Habitaciones</label>
-                <input
+                <Input
                   id="edit-habitaciones"
                   name="habitaciones"
                   type="number"
                   min="0"
-                  className={FIELD_CLASS_NAME}
-                  style={inputStyle}
                   value={fields.habitaciones}
                   onChange={handleFieldChange}
                 />
@@ -294,13 +274,11 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
               <div style={fieldStyle}>
                 <label htmlFor="edit-banos">Baños</label>
-                <input
+                <Input
                   id="edit-banos"
                   name="banos"
                   type="number"
                   min="0"
-                  className={FIELD_CLASS_NAME}
-                  style={inputStyle}
                   value={fields.banos}
                   onChange={handleFieldChange}
                 />
@@ -313,13 +291,11 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
             <div style={fieldStyle}>
               <label htmlFor="edit-valorMensual">Valor mensual</label>
-              <input
+              <Input
                 id="edit-valorMensual"
                 name="valorMensual"
                 type="number"
                 min="1"
-                className={FIELD_CLASS_NAME}
-                style={inputStyle}
                 value={fields.valorMensual}
                 onChange={handleFieldChange}
               />
@@ -330,12 +306,10 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
 
             <div style={fieldStyle}>
               <label htmlFor="edit-descripcion">Descripción</label>
-              <textarea
+              <Textarea
                 id="edit-descripcion"
                 name="descripcion"
                 rows={4}
-                className={FIELD_CLASS_NAME}
-                style={textareaStyle}
                 value={fields.descripcion}
                 onChange={handleFieldChange}
               />
@@ -348,13 +322,9 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={!isFormReady || isSubmitting}
-            style={primaryButtonStyle}
-          >
+          <Button type="submit" variant="primary" disabled={!isFormReady || isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

@@ -2,10 +2,11 @@
  * MisInmueblesPage — panel "Mis inmuebles" para el propietario autenticado.
  *
  * Fetches the propietario's own listings via `listarMisInmuebles(token)` on
- * mount and renders them as a list.  Each card shows a human-readable status
- * badge and, depending on the current `estado`, a "Despublicar" or
- * "Republicar" button.  Clicking a button calls `cambiarDisponibilidad` and
- * updates the card's local state from the response — no full-list refetch.
+ * mount and renders them as a list of `PropertyCard` (from `@rentame/ui`).
+ * Each card shows a human-readable status badge and, depending on the
+ * current `estado`, a "Despublicar" or "Republicar" button. Clicking a
+ * button calls `cambiarDisponibilidad` and updates the card's local state
+ * from the response — no full-list refetch.
  *
  * Status badge mapping (per `EstadoInmueble` in
  * `backend/inmuebles/domain/inmueble.py`):
@@ -16,15 +17,18 @@
  * The `"no_disponible"` state is only reachable via the future arrendamiento
  * domain — propietarios cannot trigger it manually, so no button is rendered.
  */
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { EyeOff, Eye, Pencil } from 'lucide-react';
 import { useAuth } from '@rentame/auth';
+import { Button, PropertyCard } from '@rentame/ui';
+import type { PropertyCardEstado } from '@rentame/ui';
+import { typography } from '@rentame/design-tokens';
 import {
   cambiarDisponibilidad,
   InmueblesApiError,
   listarMisInmuebles,
 } from '../services/inmuebles.api';
-import type { Inmueble } from '../services/inmuebles.api';
-import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
+import type { FotoInmueble, Inmueble } from '../services/inmuebles.api';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -54,21 +58,30 @@ const ESTADO_LABELS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getFotoUrl(fotos: FotoInmueble[]): string | null {
+  const principal = fotos.find((foto) => foto.esPrincipal) ?? fotos[0];
+  return principal?.urlStorage ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const MisInmueblesPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
   const { session } = useAuth();
 
-  const [inmuebles, setInmuebles] = useState<Inmueble[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [inmuebles, setInmuebles] = React.useState<Inmueble[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   // -------------------------------------------------------------------------
   // Fetch on mount
   // -------------------------------------------------------------------------
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!session) {
       setLoading(false);
       return;
@@ -128,9 +141,9 @@ const MisInmueblesPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
     return (
       <div style={containerStyle}>
         {onPublicar && (
-          <button type="button" style={primaryButtonStyle} onClick={onPublicar}>
+          <Button variant="primary" onClick={onPublicar}>
             Publicar nuevo inmueble
-          </button>
+          </Button>
         )}
         <p>No tenés inmuebles publicados.</p>
       </div>
@@ -139,48 +152,56 @@ const MisInmueblesPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
 
   return (
     <div style={containerStyle}>
-      <h1>Mis inmuebles</h1>
+      <h1 style={titleStyle}>Mis inmuebles</h1>
       {onPublicar && (
-        <button type="button" style={primaryButtonStyle} onClick={onPublicar}>
+        <Button variant="primary" onClick={onPublicar}>
           Publicar nuevo inmueble
-        </button>
+        </Button>
       )}
       <ul style={listStyle}>
         {inmuebles.map((inmueble) => (
-          <li key={inmueble.id} style={cardStyle}>
-            <span style={direccionStyle}>{inmueble.direccion}</span>
-            <span style={badgeStyle(inmueble.estado)}>
-              {ESTADO_LABELS[inmueble.estado] ?? inmueble.estado}
-            </span>
-            <div style={actionsStyle}>
-              {inmueble.estado === 'disponible' && (
-                <button
-                  type="button"
-                  style={secondaryButtonStyle}
-                  onClick={() => void handleCambiarDisponibilidad(inmueble, 'oculto')}
+          <li key={inmueble.id} style={listItemStyle}>
+            <PropertyCard
+              direccion={inmueble.direccion}
+              barrio={inmueble.barrio}
+              ciudad={inmueble.ciudad}
+              habitaciones={inmueble.habitaciones}
+              banos={inmueble.banos}
+              valorMensual={inmueble.valorMensual}
+              fotoUrl={getFotoUrl(inmueble.fotos)}
+              estado={inmueble.estado as PropertyCardEstado}
+              estadoLabel={ESTADO_LABELS[inmueble.estado] ?? inmueble.estado}
+              acciones={
+                <div
+                  style={accionesStyle}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
                 >
-                  Despublicar
-                </button>
-              )}
-              {inmueble.estado === 'oculto' && (
-                <button
-                  type="button"
-                  style={secondaryButtonStyle}
-                  onClick={() => void handleCambiarDisponibilidad(inmueble, 'disponible')}
-                >
-                  Republicar
-                </button>
-              )}
-              {onEditar && (
-                <button
-                  type="button"
-                  style={secondaryButtonStyle}
-                  onClick={() => onEditar(inmueble)}
-                >
-                  Editar
-                </button>
-              )}
-            </div>
+                  {inmueble.estado === 'disponible' && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => void handleCambiarDisponibilidad(inmueble, 'oculto')}
+                    >
+                      <EyeOff size={16} /> Despublicar
+                    </Button>
+                  )}
+                  {inmueble.estado === 'oculto' && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => void handleCambiarDisponibilidad(inmueble, 'disponible')}
+                    >
+                      <Eye size={16} /> Republicar
+                    </Button>
+                  )}
+                  {onEditar && (
+                    <Button variant="secondary" onClick={() => onEditar(inmueble)}>
+                      <Pencil size={16} /> Editar
+                    </Button>
+                  )}
+                </div>
+              }
+            />
           </li>
         ))}
       </ul>
@@ -189,14 +210,19 @@ const MisInmueblesPage: React.FC<Props> = ({ onPublicar, onEditar }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Styles (inline — consistent with PublicarInmueblePage / EditarInmueblePage)
+// Styles
 // ---------------------------------------------------------------------------
 
 const containerStyle: React.CSSProperties = {
-  fontFamily: 'sans-serif',
+  fontFamily: typography.fontFamilyBase,
   padding: '2rem',
   maxWidth: '640px',
   margin: '0 auto',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontFamily: typography.fontFamilyDisplay,
+  fontSize: typography.fontSizeH1,
 };
 
 const listStyle: React.CSSProperties = {
@@ -208,55 +234,14 @@ const listStyle: React.CSSProperties = {
   gap: '1rem',
 };
 
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-card)',
-  padding: '1rem',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5rem',
+const listItemStyle: React.CSSProperties = {
+  listStyle: 'none',
 };
 
-const direccionStyle: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: '1rem',
-};
-
-// disponible/no_disponible mapean 1:1 a los tokens semánticos success/error —
-// fondo suave vía color-mix() sobre --color-surface (recomendado en el README
-// del paquete de tokens) con el texto en el color sólido para mantener el
-// contraste. "oculto" y el fallback no tienen token equivalente (no existe un
-// token de warning/neutral en el paquete) — se mantienen como hex literal.
-const BADGE_COLORS: Record<string, React.CSSProperties> = {
-  disponible: {
-    backgroundColor: 'color-mix(in srgb, var(--color-success) 18%, var(--color-surface))',
-    color: 'var(--color-success)',
-  },
-  no_disponible: {
-    backgroundColor: 'color-mix(in srgb, var(--color-error) 18%, var(--color-surface))',
-    color: 'var(--color-error)',
-  },
-  oculto: { backgroundColor: '#fff3cd', color: '#856404' },
-};
-
-function badgeStyle(estado: string): React.CSSProperties {
-  // Estado desconocido/no mapeado: gris neutro sin token equivalente, se deja hardcoded.
-  const colors = BADGE_COLORS[estado] ?? { backgroundColor: '#e2e3e5', color: '#383d41' };
-  return {
-    display: 'inline-block',
-    padding: '0.15rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.85rem',
-    fontWeight: 500,
-    alignSelf: 'flex-start',
-    ...colors,
-  };
-}
-
-const actionsStyle: React.CSSProperties = {
+const accionesStyle: React.CSSProperties = {
   display: 'flex',
   gap: '0.5rem',
-  marginTop: '0.25rem',
+  flexWrap: 'wrap',
 };
 
 export default MisInmueblesPage;

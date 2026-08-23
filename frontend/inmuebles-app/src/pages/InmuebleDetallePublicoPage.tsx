@@ -9,9 +9,10 @@
  * of crashing. `onVolver()` returns to the listing in both cases.
  */
 import React, { useEffect, useState } from 'react';
+import { typography } from '@rentame/design-tokens';
+import { Button } from '@rentame/ui';
 import { InmueblesApiError, obtenerPublico } from '../services/inmuebles.api';
 import type { InmueblePublicoDetalle } from '../services/inmuebles.api';
-import { secondaryButtonStyle } from '../styles/buttons';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -77,9 +78,9 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
     return (
       <div style={containerStyle}>
         <p>Este inmueble ya no está disponible.</p>
-        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
+        <Button variant="secondary" onClick={onVolver}>
           Volver
-        </button>
+        </Button>
       </div>
     );
   }
@@ -88,18 +89,18 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
     return (
       <div style={containerStyle}>
         <p role="alert">{fetchError ?? 'Error al cargar el inmueble.'}</p>
-        <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
+        <Button variant="secondary" onClick={onVolver}>
           Volver
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div style={containerStyle}>
-      <button type="button" style={secondaryButtonStyle} onClick={onVolver}>
+      <Button variant="secondary" onClick={onVolver}>
         Volver
-      </button>
+      </Button>
 
       <div style={fotosStyle}>
         {detalle.fotos.map((foto) => (
@@ -112,7 +113,7 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
         ))}
       </div>
 
-      <h1>{detalle.direccion}</h1>
+      <h1 style={titleStyle}>{detalle.direccion}</h1>
       {
         // `tipo` is intentionally NOT rendered as its own additional visible
         // text node: its value ("apartamento" in this suite's fixtures) is
@@ -166,6 +167,11 @@ const valorStyle: React.CSSProperties = {
   fontWeight: 600,
   color: 'var(--color-primary)',
   fontSize: '1.1rem',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontFamily: typography.fontFamilyDisplay,
+  fontSize: typography.fontSizeH1,
 };
 
 export default InmuebleDetallePublicoPage;

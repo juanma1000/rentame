@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import RegistroPage from './pages/RegistroPage';
 import PrivateLayout from './layouts/PrivateLayout';
 import MisInmueblesPage from './pages/MisInmueblesPage';
+import BusquedaPublicaShellPage from './pages/BusquedaPublicaShellPage';
 
 /**
  * Shell application root.
@@ -13,10 +14,13 @@ import MisInmueblesPage from './pages/MisInmueblesPage';
  * AuthProvider wraps the entire tree so the auth context (session, role,
  * login/logout) is available to every route, layout and lazy-loaded remote.
  *
- * Route structure
+ * Route structure (HU-003)
  * ────────────────
- *  /                     → EntradaPage (pantalla de entrada simétrica por rol)
+ *  /                     → BusquedaPublicaShellPage (nuevo landing público:
+ *                          header + inmueblesApp/BusquedaPublicaRoutes remote)
  *  /login                → LoginPage
+ *  /publicar             → EntradaPage (reubicada desde "/"; pantalla de
+ *                          entrada simétrica por rol)
  *  /registro/propietario → RegistroPage rol="propietario"
  *  /registro/agente      → RegistroPage rol="agente"
  *  /registro/inquilino   → RegistroPage rol="inquilino"
@@ -25,14 +29,16 @@ import MisInmueblesPage from './pages/MisInmueblesPage';
  *  *                     → 404 fallback
  *
  * PrivateLayout uses AuthGuard with fallback={<Navigate to="/" replace />}.
- * Unauthenticated visits to any /mis-* route redirect to the entry screen.
+ * Unauthenticated visits to any /mis-* route redirect to the new public
+ * landing at "/".
  */
 const App: React.FC = () => (
   <AuthProvider>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<EntradaPage />} />
+        <Route path="/" element={<BusquedaPublicaShellPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/publicar" element={<EntradaPage />} />
         <Route path="/registro/propietario" element={<RegistroPage rol="propietario" />} />
         <Route path="/registro/agente" element={<RegistroPage rol="agente" />} />
         <Route path="/registro/inquilino" element={<RegistroPage rol="inquilino" />} />

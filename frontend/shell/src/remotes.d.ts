@@ -17,3 +17,15 @@ declare module 'inmueblesApp/PropertyRoutes' {
   const PropertyRoutes: React.ComponentType;
   export default PropertyRoutes;
 }
+
+/**
+ * inmuebles-app remote (HU-003).
+ * Exposes ./BusquedaPublicaRoutes — the top-level, prop-less component for
+ * the public search/detail flow (listado + detalle), with its own internal
+ * state machine and no nested react-router routes.
+ */
+declare module 'inmueblesApp/BusquedaPublicaRoutes' {
+  import type React from 'react';
+  const BusquedaPublicaRoutes: React.ComponentType;
+  export default BusquedaPublicaRoutes;
+}

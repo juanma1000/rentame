@@ -874,6 +874,13 @@ frontend/
 │   │                                    # en este documento; todo el dominio Inmueble, público y
 │   │                                    # privado, queda en `inmuebles-app`)
 │   ├── src/
+│   │   ├── components/
+│   │   │   └── FotoDropzone.tsx        # ui-formulario-inmueble: dropzone reusable de fotos con
+│   │   │                              # preview — envuelve un `<input type="file" multiple>` real
+│   │   │                              # y siempre visible (nunca oculto), genera miniaturas vía
+│   │   │                              # `URL.createObjectURL` (revocadas en cleanup de `useEffect`)
+│   │   │                              # y expone `onFilesSelected(files)` tanto para `onChange`
+│   │   │                              # como para `onDrop`; usado por `PublicarInmueblePage`
 │   │   ├── pages/
 │   │   │   ├── BusquedaPublicaPage.tsx     # HU-003: listado público (sin sesión) — solo inmuebles
 │   │   │   │                              # estado=disponible; tarjeta con foto, barrio, valor,
@@ -881,8 +888,14 @@ frontend/
 │   │   │   ├── InmuebleDetallePublicoPage.tsx # HU-003: detalle público completo (todas las fotos,
 │   │   │   │                              # descripción, datos del formulario); sin sesión
 │   │   │   ├── PublicarInmueblePage.tsx    # Formulario de publicación; selector de propietario
-│   │   │   │                              # condicional por rol (agente, HU-002)
-│   │   │   ├── EditarInmueblePage.tsx      # Edición — recibe el inmueble por prop, no por fetch
+│   │   │   │                              # condicional por rol (agente, HU-002); ui-formulario-inmueble:
+│   │   │   │                              # restyle con tarjeta/secciones/grid vía `styles/forms.ts`,
+│   │   │   │                              # integra `FotoDropzone`, preview de moneda, hint de campos
+│   │   │   │                              # faltantes y pantalla de éxito con ícono
+│   │   │   ├── EditarInmueblePage.tsx      # Edición — recibe el inmueble por prop, no por fetch;
+│   │   │   │                              # ui-formulario-inmueble: mismo restyle que Publicar
+│   │   │   │                              # (`styles/forms.ts`, secciones, grid, preview de moneda,
+│   │   │   │                              # éxito con ícono), sin dropzone de fotos
 │   │   │   ├── MisInmueblesPage.tsx        # Panel del propietario: listado + estados + acciones
 │   │   │   └── InmueblesGestionadosPage.tsx# Panel del agente (HU-002): cartera de su agencia
 │   │   ├── services/
@@ -891,11 +904,19 @@ frontend/
 │   │   │   │                          # listarPublicos(), obtenerPublico(id) (HU-003 — sin token)
 │   │   │   └── agencias.api.ts         # listarPropietariosVinculados() — GET /agencias/mia/propietarios
 │   │   ├── styles/
-│   │   │   └── buttons.ts              # ui-layout-navegacion: mismo patrón que
-│   │   │                              # `frontend/shell/src/styles/buttons.ts` (`primaryButtonStyle`/
-│   │   │                              # `secondaryButtonStyle` con tokens), pero archivo LOCAL propio
-│   │   │                              # de este microfrontend — no se importa entre `shell` e
-│   │   │                              # `inmuebles-app` (ver Decisiones clave)
+│   │   │   ├── buttons.ts              # ui-layout-navegacion: mismo patrón que
+│   │   │   │                          # `frontend/shell/src/styles/buttons.ts` (`primaryButtonStyle`/
+│   │   │   │                          # `secondaryButtonStyle` con tokens), pero archivo LOCAL propio
+│   │   │   │                          # de este microfrontend — no se importa entre `shell` e
+│   │   │   │                          # `inmuebles-app` (ver Decisiones clave)
+│   │   │   ├── forms.ts                # ui-formulario-inmueble: estilos compartidos de
+│   │   │   │                          # `PublicarInmueblePage`/`EditarInmueblePage` con tokens de
+│   │   │   │                          # `@rentame/design-tokens` (`cardStyle`, `sectionStyle`,
+│   │   │   │                          # `sectionTitleStyle`, `gridRowStyle`, `inputStyle`/
+│   │   │   │                          # `selectStyle`/`textareaStyle`, `FIELD_CLASS_NAME`);
+│   │   │   │                          # reemplaza `containerStyle`/`fieldStyle` duplicados
+│   │   │   └── forms.css               # Reglas `:focus` para `FIELD_CLASS_NAME` (no expresable
+│   │   │                              # como inline style), importado por `styles/forms.ts`
 │   │   ├── BusquedaPublicaRoutes.tsx   # HU-003: expuesto vía Module Federation
 │   │   │                              # (./BusquedaPublicaRoutes) — state machine local listado↔detalle,
 │   │   │                              # consumido por shell/src/pages/BusquedaPublicaShellPage.tsx

@@ -801,14 +801,15 @@ frontend/
 ├── shell/                              # Host: portal contenedor
 │   ├── src/
 │   │   ├── main.tsx                    # Punto de entrada; monta App con AuthProvider
-│   │   ├── App.tsx                     # Router global (HU-003): "/" monta BusquedaPublicaShellPage
-│   │   │                              # (nueva landing pública); "/publicar" monta EntradaPage
-│   │   │                              # (reubicada desde "/"); LoginPage/RegistroPage sin cambios;
-│   │   │                              # PrivateLayout protege /mis-inmuebles
+│   │   ├── App.tsx                     # Router global (ui-layout-navegacion): TODAS las rutas
+│   │   │                              # ("/", "/login", "/registro/*", "/publicar" y el árbol de
+│   │   │                              # `/mis-inmuebles`) cuelgan de una única
+│   │   │                              # `<Route element={<AppLayout/>}>`; `PrivateLayout` se anida
+│   │   │                              # dentro de `AppLayout` solo para las rutas protegidas
 │   │   ├── pages/
-│   │   │   ├── BusquedaPublicaShellPage.tsx # HU-003: nueva landing ("/") — header con "Publicar mi
-│   │   │   │                          # inmueble" (→ /publicar) e "Iniciar sesión" (→ /login), monta
-│   │   │   │                          # lazy `inmueblesApp/BusquedaPublicaRoutes` (React.lazy) debajo
+│   │   │   ├── BusquedaPublicaShellPage.tsx # HU-003, simplificado en ui-layout-navegacion: ya no
+│   │   │   │                          # tiene header propio (vive en `AppLayout`) — solo el
+│   │   │   │                          # `Suspense`+lazy-load de `inmueblesApp/BusquedaPublicaRoutes`
 │   │   │   ├── EntradaPage.tsx         # HU-008: pantalla de entrada, 3 opciones simétricas por rol;
 │   │   │   │                          # reubicada a "/publicar" por HU-003, sin cambios internos
 │   │   │   ├── LoginPage.tsx           # HU-008: login email+contraseña; error único sin distinguir dato
@@ -821,8 +822,22 @@ frontend/
 │   │   │                              # mínimo deliberadamente duplicado del agencias.api de
 │   │   │                              # inmuebles-app (ver comentario en el archivo, HU-008)
 │   │   ├── layouts/
-│   │   │   ├── PublicLayout.tsx        # Sin sesión: navbar mínimo
-│   │   │   └── PrivateLayout.tsx       # Con sesión: nav completo, sidebar por rol
+│   │   │   ├── AppLayout.tsx           # ui-layout-navegacion: layout único que envuelve TODAS las
+│   │   │   │                          # rutas vía `<Outlet/>` — header con menú consciente de sesión
+│   │   │   │                          # (`useAuth()`: sin sesión → Inicio/Publicar mi inmueble/Iniciar
+│   │   │   │                          # sesión; con sesión → Inicio/Mis inmuebles/Cerrar sesión) y
+│   │   │   │                          # footer de marca. Centraliza la lógica que antes vivía
+│   │   │   │                          # duplicada en `BusquedaPublicaShellPage`
+│   │   │   └── PrivateLayout.tsx       # `AuthGuard` con fallback a "/"; se anida DENTRO de
+│   │   │                              # `AppLayout` solo para el árbol de rutas protegidas
+│   │   │                              # (`/mis-inmuebles`) — no reemplaza a `AppLayout`, lo complementa
+│   │   ├── styles/
+│   │   │   └── buttons.ts              # ui-layout-navegacion: `primaryButtonStyle`/
+│   │   │                              # `secondaryButtonStyle` con tokens de `@rentame/design-tokens`
+│   │   │                              # (`var(--color-primary)`, `var(--color-border)`,
+│   │   │                              # `var(--radius-card)`). Archivo LOCAL de este microfrontend,
+│   │   │                              # no compartido con `inmuebles-app` — mismo criterio que
+│   │   │                              # `agencias.api.ts` duplicado (ver Decisiones clave)
 │   │   └── remotes.d.ts                # Declaraciones de tipos para módulos remotos
 │   ├── rspack.config.ts                # MF2 host config: remotes[], shared (react, @rentame/auth);
 │   │                                  # output.publicPath: '/' (absoluto, no 'auto' — ver sección 6)
@@ -875,6 +890,12 @@ frontend/
 │   │   │   │                          # listarMisInmuebles(), listarInmueblesGestionados(),
 │   │   │   │                          # listarPublicos(), obtenerPublico(id) (HU-003 — sin token)
 │   │   │   └── agencias.api.ts         # listarPropietariosVinculados() — GET /agencias/mia/propietarios
+│   │   ├── styles/
+│   │   │   └── buttons.ts              # ui-layout-navegacion: mismo patrón que
+│   │   │                              # `frontend/shell/src/styles/buttons.ts` (`primaryButtonStyle`/
+│   │   │                              # `secondaryButtonStyle` con tokens), pero archivo LOCAL propio
+│   │   │                              # de este microfrontend — no se importa entre `shell` e
+│   │   │                              # `inmuebles-app` (ver Decisiones clave)
 │   │   ├── BusquedaPublicaRoutes.tsx   # HU-003: expuesto vía Module Federation
 │   │   │                              # (./BusquedaPublicaRoutes) — state machine local listado↔detalle,
 │   │   │                              # consumido por shell/src/pages/BusquedaPublicaShellPage.tsx
@@ -1005,6 +1026,7 @@ export default {
 | Canal de notificaciones | Email (canal inicial) | Cubre todos los eventos críticos del flujo. Push nativo requeriría Service Worker o app nativa — inviable para MVP unipersonal. El puerto de email permite agregar SMS/WhatsApp a futuro. |
 | Slicing de código — backend | Por dominio/feature (`usuarios/`, `inmuebles/`, `identidad/`, `arrendamiento/`, `riesgo/`, `pagos/`) | Mejora cohesión: todo lo relacionado a `pagos/` vive junto. Facilita crecimiento independiente de cada dominio. Reduce acoplamiento accidental entre features. |
 | Estado de servidor en frontend | React Query por remote | Cada remote gestiona su propio caché de servidor con React Query. El estado global de sesión (auth) queda centralizado en `@rentame/auth`. No se introduce Zustand adicional — el hook `useAuth` del singleton cubre el estado global necesario para el MVP. |
+| Componentes UI compartidos entre `shell` e `inmuebles-app` | Sin paquete compartido — cada microfrontend define su propio `src/styles/buttons.ts` local (`primaryButtonStyle`/`secondaryButtonStyle`) | Resuelto en `ui-layout-navegacion`: crear y versionar un paquete de componentes UI compartido es una inversión mayor no justificada aún por la cantidad de estilos duplicados (dos constantes de botón). Se aplica el mismo criterio ya usado para `agencias.api.ts` duplicado entre `shell` e `inmuebles-app` (HU-008): duplicación mínima y deliberada en vez de coordinar versionado entre remotes independientes. |
 
 ---
 

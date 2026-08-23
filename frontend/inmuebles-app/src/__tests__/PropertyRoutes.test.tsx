@@ -74,6 +74,7 @@ function makeToken(payload: Record<string, unknown>): string {
 
 const TEST_TOKEN = makeToken({ sub: 'propietario-1', rol: 'propietario', exp: 9_999_999_999 });
 const AGENTE_TOKEN = makeToken({ sub: 'agente-1', rol: 'agente', exp: 9_999_999_999 });
+const INQUILINO_TOKEN = makeToken({ sub: 'inquilino-1', rol: 'inquilino', exp: 9_999_999_999 });
 
 const INMUEBLE_FIXTURE: Inmueble = {
   id: 'inmueble-uuid-1',
@@ -253,6 +254,33 @@ describe('PropertyRoutes (task 16 — state-machine navigation)', () => {
       fireEvent.click(screen.getByRole('button', { name: /^editar$/i }));
 
       expect(screen.getByRole('heading', { name: /editar inmueble/i })).toBeInTheDocument();
+    });
+  });
+
+  // ── Unsupported role (bug repro) ──────────────────────────────────────────
+  //
+  // `rol="inquilino"` is a valid account role (registrable since HU-008) but
+  // has no inmuebles-management view. Before this fix, neither the
+  // `propietario` nor `agente` branch matched, so the "lista" view rendered
+  // a completely empty `<div data-testid="inmuebles-routes" />` — a blank
+  // page with zero console errors and zero failed network requests,
+  // reported by the user after "Publicar mi inmueble" (now session-aware,
+  // see BusquedaPublicaShellPage) sent an authenticated inquilino straight
+  // to /mis-inmuebles.
+  describe('inquilino role — no inmuebles-management view exists yet', () => {
+    it('shows an explanatory message instead of rendering blank', async () => {
+      localStorage.setItem('rentame_auth_token', INQUILINO_TOKEN);
+      render(
+        <AuthProvider>
+          <PropertyRoutes />
+        </AuthProvider>,
+      );
+
+      expect(
+        await screen.findByText(/no (hay|tenés|tienes) inmuebles para gestionar/i),
+      ).toBeInTheDocument();
+      expect(mockListarMisInmuebles).not.toHaveBeenCalled();
+      expect(mockListarInmueblesGestionados).not.toHaveBeenCalled();
     });
   });
 });

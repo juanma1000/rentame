@@ -82,6 +82,12 @@ const PropertyRoutes: React.FC = () => {
         />
       )}
 
+      {view.kind === 'lista' && role !== 'propietario' && role !== 'agente' && (
+        <p style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
+          No hay inmuebles para gestionar con esta cuenta.
+        </p>
+      )}
+
       {view.kind === 'publicar' && (
         <PublicarInmueblePage
           onVolver={() => volverALista(false)}

@@ -65,6 +65,9 @@ const config: Configuration = {
         // remotes.d.ts and lazy-loaded from task 16+.
         // Task 15.3: placeholder component; real implementation starts task 16.
         './PropertyRoutes': './src/PropertyRoutes.tsx',
+        // Exposed as 'inmueblesApp/BusquedaPublicaRoutes' — HU-003 public
+        // (unauthenticated) listing/detail flow.
+        './BusquedaPublicaRoutes': './src/BusquedaPublicaRoutes.tsx',
       },
       shared: {
         react: { singleton: true, requiredVersion: false },

@@ -28,13 +28,21 @@
  * import (`Cannot find module '../inmuebles.api'`), which is the genuine Red
  * failure for this phase. No implementation is written here.
  */
-import type { EditarInmuebleInput, Inmueble, PublicarInmuebleInput } from '../inmuebles.api';
+import type {
+  EditarInmuebleInput,
+  Inmueble,
+  InmueblePublico,
+  InmueblePublicoDetalle,
+  PublicarInmuebleInput,
+} from '../inmuebles.api';
 import {
   cambiarDisponibilidad,
   editarInmueble,
   InmueblesApiError,
   listarInmueblesGestionados,
   listarMisInmuebles,
+  listarPublicos,
+  obtenerPublico,
   publicarInmueble,
 } from '../inmuebles.api';
 
@@ -683,5 +691,238 @@ describe('inmuebles.api — listarInmueblesGestionados (contract, Red)', () => {
     expect(caught).toBeInstanceOf(InmueblesApiError);
     expect((caught as InmueblesApiError).message).toBe('No autorizado.');
     expect((caught as InmueblesApiError).status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HU-003 (Red) — contract tests for `listarPublicos` and `obtenerPublico`.
+//
+// Fixes the contract of both functions BEFORE the implementation exists
+// (TDD Red phase), per the "Listado público de inmuebles disponibles" and
+// "Detalle público de un inmueble disponible" requirements in
+// `openspec/changes/hu-003/specs/inmuebles/spec.md` and
+// `openspec/changes/hu-003/design.md` decision 4/5 (new public-only
+// response schemas, `GET /inmuebles/publicos` and
+// `GET /inmuebles/publicos/{id}`, neither requires `Authorization`).
+//
+// Contract — `listarPublicos()`:
+//   - Sends a `GET` request to `.../inmuebles/publicos` (native `fetch`, same
+//     client and mapping pattern as the other listing functions).
+//   - Does NOT set an `Authorization` header (no token param at all — this
+//     is a public, unauthenticated endpoint).
+//   - On a successful (2xx) response, resolves with the parsed JSON array of
+//     `InmueblePublico`, mapped from the backend's snake_case
+//     `InmueblePublicoListItemResponse` shape (`foto_principal`, `direccion`,
+//     `barrio`, `ciudad`, `valor_mensual`, `habitaciones`, `banos`) to
+//     camelCase (`fotoPrincipal`, `valorMensual`) — `fotoPrincipal` may be
+//     `null` when the inmueble has no photos yet.
+//   - On a non-2xx response, throws the same typed `InmueblesApiError` as
+//     the other functions.
+//
+// Contract — `obtenerPublico(id)`:
+//   - Sends a `GET` request to `.../inmuebles/publicos/{id}`.
+//   - Does NOT set an `Authorization` header.
+//   - On a successful (2xx) response, resolves with the parsed JSON body
+//     mapped to `InmueblePublicoDetalle` (camelCase: `areaM2`,
+//     `valorMensual`; `fotos` mapped to `{ urlStorage, orden, esPrincipal }`
+//     per photo, same field names as the private `FotoInmueble` shape).
+//   - On a 404 (inmueble does not exist, or is `oculto`/`no_disponible`),
+//     throws the typed `InmueblesApiError` with `.status === 404` — per
+//     `design.md` decision 1, the backend never reveals which of the two
+//     cases it is.
+//
+// Neither `listarPublicos` nor `obtenerPublico` exist yet in
+// `../inmuebles.api` — every test below is expected to fail on import
+// (`Cannot find name 'listarPublicos'` / `'obtenerPublico'` at compile time,
+// or `TypeError: ... is not a function` at runtime), the genuine Red
+// failure for this phase. No implementation is written here.
+// ---------------------------------------------------------------------------
+
+const inmueblePublicoConFoto: InmueblePublico = {
+  id: 'inmueble-uuid-1',
+  fotoPrincipal: 'https://storage.local/foto-1.jpg',
+  direccion: 'Calle 10 # 20-30',
+  barrio: 'Laureles',
+  ciudad: 'Medellín',
+  valorMensual: 1_500_000,
+  habitaciones: 2,
+  banos: 1,
+};
+
+const inmueblePublicoSinFoto: InmueblePublico = {
+  id: 'inmueble-uuid-2',
+  fotoPrincipal: null,
+  direccion: 'Carrera 50 # 10-20',
+  barrio: 'Poblado',
+  ciudad: 'Medellín',
+  valorMensual: 2_000_000,
+  habitaciones: 3,
+  banos: 2,
+};
+
+/** Raw snake_case backend response for the `/inmuebles/publicos` listing. */
+const rawInmueblePublicoConFoto = {
+  id: 'inmueble-uuid-1',
+  foto_principal: 'https://storage.local/foto-1.jpg',
+  direccion: 'Calle 10 # 20-30',
+  barrio: 'Laureles',
+  ciudad: 'Medellín',
+  valor_mensual: 1_500_000,
+  habitaciones: 2,
+  banos: 1,
+};
+
+const rawInmueblePublicoSinFoto = {
+  id: 'inmueble-uuid-2',
+  foto_principal: null,
+  direccion: 'Carrera 50 # 10-20',
+  barrio: 'Poblado',
+  ciudad: 'Medellín',
+  valor_mensual: 2_000_000,
+  habitaciones: 3,
+  banos: 2,
+};
+
+describe('inmuebles.api — listarPublicos (contract, Red, HU-003)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('sends a GET request to .../inmuebles/publicos without an Authorization header', async () => {
+    mockFetchResolvedOnce([rawInmueblePublicoConFoto, rawInmueblePublicoSinFoto], 200);
+
+    await listarPublicos();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, requestInit] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit | undefined,
+    ];
+
+    expect(url).toEqual(expect.stringMatching(/\/inmuebles\/publicos$/));
+    expect(requestInit?.method).toBe('GET');
+    const headers = (requestInit?.headers ?? {}) as Record<string, string>;
+    expect(headers['Authorization']).toBeUndefined();
+  });
+
+  it('resolves with the array of InmueblePublico parsed and mapped to camelCase from a successful (200) response', async () => {
+    mockFetchResolvedOnce([rawInmueblePublicoConFoto, rawInmueblePublicoSinFoto], 200);
+
+    const result = await listarPublicos();
+
+    expect(result).toEqual([inmueblePublicoConFoto, inmueblePublicoSinFoto]);
+  });
+
+  it('resolves with an empty array when there are no inmuebles disponibles', async () => {
+    mockFetchResolvedOnce([], 200);
+
+    const result = await listarPublicos();
+
+    expect(result).toEqual([]);
+  });
+
+  it('preserves a null fotoPrincipal for an inmueble without photos', async () => {
+    mockFetchResolvedOnce([rawInmueblePublicoSinFoto], 200);
+
+    const result = await listarPublicos();
+
+    expect(result[0]?.fotoPrincipal).toBeNull();
+  });
+
+  it('throws a typed InmueblesApiError with the backend detail message on a failed response', async () => {
+    mockFetchResolvedOnce({ detail: 'Error interno.' }, 500);
+
+    let caught: unknown;
+    try {
+      await listarPublicos();
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(InmueblesApiError);
+    expect((caught as InmueblesApiError).message).toBe('Error interno.');
+    expect((caught as InmueblesApiError).status).toBe(500);
+  });
+});
+
+const inmueblePublicoDetalle: InmueblePublicoDetalle = {
+  id: 'inmueble-uuid-1',
+  direccion: 'Calle 10 # 20-30',
+  barrio: 'Laureles',
+  ciudad: 'Medellín',
+  tipo: 'apartamento',
+  areaM2: 65,
+  habitaciones: 2,
+  banos: 1,
+  valorMensual: 1_500_000,
+  descripcion: 'Apartamento luminoso cerca al parque.',
+  fotos: [
+    { urlStorage: 'https://storage.local/foto-1.jpg', orden: 0, esPrincipal: true },
+    { urlStorage: 'https://storage.local/foto-2.jpg', orden: 1, esPrincipal: false },
+  ],
+};
+
+/** Raw snake_case backend response for `/inmuebles/publicos/{id}`. */
+const rawInmueblePublicoDetalle = {
+  id: 'inmueble-uuid-1',
+  direccion: 'Calle 10 # 20-30',
+  barrio: 'Laureles',
+  ciudad: 'Medellín',
+  tipo: 'apartamento',
+  area_m2: 65,
+  habitaciones: 2,
+  banos: 1,
+  valor_mensual: 1_500_000,
+  descripcion: 'Apartamento luminoso cerca al parque.',
+  fotos: [
+    { url_storage: 'https://storage.local/foto-1.jpg', orden: 0, es_principal: true },
+    { url_storage: 'https://storage.local/foto-2.jpg', orden: 1, es_principal: false },
+  ],
+};
+
+describe('inmuebles.api — obtenerPublico (contract, Red, HU-003)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('sends a GET request to .../inmuebles/publicos/{id} without an Authorization header', async () => {
+    mockFetchResolvedOnce(rawInmueblePublicoDetalle, 200);
+
+    await obtenerPublico(inmueblePublicoDetalle.id);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, requestInit] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit | undefined,
+    ];
+
+    expect(url).toEqual(
+      expect.stringMatching(new RegExp(`/inmuebles/publicos/${inmueblePublicoDetalle.id}$`)),
+    );
+    expect(requestInit?.method).toBe('GET');
+    const headers = (requestInit?.headers ?? {}) as Record<string, string>;
+    expect(headers['Authorization']).toBeUndefined();
+  });
+
+  it('resolves with the InmueblePublicoDetalle mapped to camelCase, including all ordered fotos', async () => {
+    mockFetchResolvedOnce(rawInmueblePublicoDetalle, 200);
+
+    const result = await obtenerPublico(inmueblePublicoDetalle.id);
+
+    expect(result).toEqual(inmueblePublicoDetalle);
+  });
+
+  it('throws a typed InmueblesApiError with status 404 when the inmueble does not exist or is not disponible', async () => {
+    mockFetchResolvedOnce({ detail: 'Inmueble no encontrado.' }, 404);
+
+    let caught: unknown;
+    try {
+      await obtenerPublico('inmueble-oculto-o-inexistente');
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(InmueblesApiError);
+    expect((caught as InmueblesApiError).status).toBe(404);
   });
 });

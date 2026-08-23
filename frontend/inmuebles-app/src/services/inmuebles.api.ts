@@ -44,6 +44,47 @@ export interface PublicarInmuebleInput {
  */
 export type EditarInmuebleInput = PublicarInmuebleInput;
 
+/**
+ * Public (unauthenticated) listing item — one card of the public grid.
+ *
+ * Mapped from the backend's `InmueblePublicoListItemResponse`
+ * (`GET /inmuebles/publicos`). Deliberately narrower than `Inmueble`: no
+ * `propietarioId`, `estado`, `tipo`, `areaM2` or `descripcion` — only what a
+ * listing card needs.
+ */
+export interface InmueblePublico {
+  id: string;
+  fotoPrincipal: string | null;
+  direccion: string;
+  barrio: string;
+  ciudad: string;
+  valorMensual: number;
+  habitaciones: number;
+  banos: number;
+}
+
+/**
+ * Public (unauthenticated) full detail — mapped from the backend's
+ * `InmueblePublicoDetalleResponse` (`GET /inmuebles/publicos/{id}`).
+ *
+ * Like `Inmueble` but without `propietarioId`/`estado` (never exposed on the
+ * public endpoints) and with `fotos` narrowed to `{ urlStorage, orden,
+ * esPrincipal }` (no `storageKey` — internal storage detail).
+ */
+export interface InmueblePublicoDetalle {
+  id: string;
+  direccion: string;
+  barrio: string;
+  ciudad: string;
+  tipo: string;
+  areaM2: number;
+  habitaciones: number;
+  banos: number;
+  valorMensual: number;
+  descripcion: string;
+  fotos: Array<Pick<FotoInmueble, 'urlStorage' | 'orden' | 'esPrincipal'>>;
+}
+
 export interface FotoInmueble {
   urlStorage: string;
   storageKey: string;
@@ -92,6 +133,72 @@ interface RawInmuebleApi {
   descripcion: string;
   estado: string;
   fotos: RawFotoApi[];
+}
+
+interface RawInmueblePublicoApi {
+  id: string;
+  foto_principal: string | null;
+  direccion: string;
+  barrio: string;
+  ciudad: string;
+  valor_mensual: number;
+  habitaciones: number;
+  banos: number;
+}
+
+interface RawFotoPublicaApi {
+  url_storage: string;
+  orden: number;
+  es_principal: boolean;
+}
+
+interface RawInmueblePublicoDetalleApi {
+  id: string;
+  direccion: string;
+  barrio: string;
+  ciudad: string;
+  tipo: string;
+  area_m2: number;
+  habitaciones: number;
+  banos: number;
+  valor_mensual: number;
+  descripcion: string;
+  fotos: RawFotoPublicaApi[];
+}
+
+function mapInmueblePublicoFromApi(raw: RawInmueblePublicoApi): InmueblePublico {
+  return {
+    id: String(raw.id),
+    fotoPrincipal: raw.foto_principal,
+    direccion: raw.direccion,
+    barrio: raw.barrio,
+    ciudad: raw.ciudad,
+    valorMensual: raw.valor_mensual,
+    habitaciones: raw.habitaciones,
+    banos: raw.banos,
+  };
+}
+
+function mapInmueblePublicoDetalleFromApi(
+  raw: RawInmueblePublicoDetalleApi,
+): InmueblePublicoDetalle {
+  return {
+    id: String(raw.id),
+    direccion: raw.direccion,
+    barrio: raw.barrio,
+    ciudad: raw.ciudad,
+    tipo: raw.tipo,
+    areaM2: raw.area_m2,
+    habitaciones: raw.habitaciones,
+    banos: raw.banos,
+    valorMensual: raw.valor_mensual,
+    descripcion: raw.descripcion,
+    fotos: (raw.fotos ?? []).map((foto) => ({
+      urlStorage: foto.url_storage,
+      orden: foto.orden,
+      esPrincipal: foto.es_principal,
+    })),
+  };
 }
 
 function mapFotoFromApi(raw: RawFotoApi): FotoInmueble {
@@ -329,6 +436,56 @@ export async function listarInmueblesGestionados(token: string): Promise<Inmuebl
   }
 
   return ((await response.json()) as RawInmuebleApi[]).map(mapInmuebleFromApi);
+}
+
+/**
+ * GET `/inmuebles/publicos` — list all inmuebles disponibles, publicly and
+ * without authentication.
+ *
+ * No `token` parameter — the `Authorization` header is never set for this
+ * endpoint (see `openspec/changes/hu-003/design.md` decision 4/5).
+ *
+ * @returns array of `InmueblePublico` (empty when there are none disponibles)
+ * @throws {InmueblesApiError} when the server returns a non-2xx status
+ */
+export async function listarPublicos(): Promise<InmueblePublico[]> {
+  const response = await fetch(`${BASE_URL}/inmuebles/publicos`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const body = (await response.json()) as { detail?: string };
+    throw new InmueblesApiError(body.detail ?? 'Error desconocido', response.status);
+  }
+
+  return ((await response.json()) as RawInmueblePublicoApi[]).map(mapInmueblePublicoFromApi);
+}
+
+/**
+ * GET `/inmuebles/publicos/{inmuebleId}` — full public detail of a single
+ * inmueble disponible, without authentication.
+ *
+ * No `token` parameter — the `Authorization` header is never set for this
+ * endpoint.
+ *
+ * @param inmuebleId — UUID of the inmueble to fetch
+ * @returns the `InmueblePublicoDetalle` parsed from the 200 JSON response
+ * @throws {InmueblesApiError} with `.status === 404` when the inmueble does
+ *   not exist or is not `disponible` (the backend never reveals which)
+ */
+export async function obtenerPublico(inmuebleId: string): Promise<InmueblePublicoDetalle> {
+  const response = await fetch(`${BASE_URL}/inmuebles/publicos/${inmuebleId}`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const body = (await response.json()) as { detail?: string };
+    throw new InmueblesApiError(body.detail ?? 'Error desconocido', response.status);
+  }
+
+  return mapInmueblePublicoDetalleFromApi(
+    (await response.json()) as RawInmueblePublicoDetalleApi,
+  );
 }
 
 export async function cambiarDisponibilidad(

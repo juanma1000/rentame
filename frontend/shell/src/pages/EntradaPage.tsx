@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router';
+import { radius, spacing, transitions, typography } from '@rentame/design-tokens';
 
 /**
  * Pantalla de entrada simétrica por rol (HU-008).
@@ -13,7 +14,7 @@ import { Link } from 'react-router';
  */
 const EntradaPage: React.FC = () => (
   <div style={containerStyle}>
-    <h1>Rentame</h1>
+    <h1 style={titleStyle}>Rentame</h1>
     {/* text-secondary sobre fondo blanco por defecto (sin --color-background explícito) — cumple el mínimo de contraste del README */}
     <p style={{ color: 'var(--color-text-secondary)' }}>¿Qué quieres hacer?</p>
 
@@ -30,17 +31,24 @@ const EntradaPage: React.FC = () => (
     </div>
 
     <p style={{ marginTop: '2rem' }}>
-      ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
+      ¿Ya tienes cuenta? <Link to="/login" style={loginLinkStyle}>Iniciar sesión</Link>
     </p>
   </div>
 );
 
 const containerStyle: React.CSSProperties = {
-  fontFamily: 'sans-serif',
+  fontFamily: typography.fontFamilyBase,
   padding: '2rem',
   maxWidth: '520px',
   margin: '0 auto',
   textAlign: 'center',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontFamily: typography.fontFamilyDisplay,
+  fontSize: typography.fontSizeH1,
+  fontWeight: typography.fontWeightRegular,
+  color: 'var(--color-primary)',
 };
 
 const optionsStyle: React.CSSProperties = {
@@ -50,14 +58,29 @@ const optionsStyle: React.CSSProperties = {
   marginTop: '1.5rem',
 };
 
+// Estilizado a mano (mismos tokens que `Button` variant="secondary" de
+// `@rentame/ui`) — no puede ser el componente `Button` porque este es un
+// <Link> real de react-router (navegación de verdad, no onClick) y `Button`
+// solo renderiza <button>.
 const optionLinkStyle: React.CSSProperties = {
   display: 'block',
-  padding: '1rem',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-card)',
+  padding: `${spacing[3]} ${spacing[4]}`,
+  border: '1px solid var(--color-primary)',
+  borderRadius: radius.sm,
   textDecoration: 'none',
-  color: 'inherit',
-  fontWeight: 600,
+  backgroundColor: 'var(--color-surface)',
+  color: 'var(--color-primary)',
+  fontFamily: typography.fontFamilyBase,
+  fontWeight: typography.fontWeightMedium,
+  fontSize: typography.fontSizeBody,
+  transition: transitions.base,
+};
+
+// Mismos tokens que `Button` variant="ghost" — acción secundaria, sin borde.
+const loginLinkStyle: React.CSSProperties = {
+  color: 'var(--color-primary)',
+  fontWeight: typography.fontWeightMedium,
+  textDecoration: 'underline',
 };
 
 export default EntradaPage;

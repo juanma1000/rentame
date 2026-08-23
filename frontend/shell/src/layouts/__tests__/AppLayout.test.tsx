@@ -159,4 +159,61 @@ describe('AppLayout (contract, Red)', () => {
     renderAppLayout();
     expect(screen.getAllByText(/rentame/i).length).toBeGreaterThan(0);
   });
+
+  /**
+   * Task (Red) — visual identity contract, per
+   * `openspec/changes/design-system-premium-real-estate/design.md`
+   * (decision 8) and
+   * `openspec/changes/design-system-premium-real-estate/specs/design-system/spec.md`
+   * ("Navegación con identidad Navy").
+   *
+   * Mechanism decided for this Red phase (jsdom does not resolve CSS custom
+   * properties to their computed hex value, so we assert on the literal
+   * `var(--color-*)` string set via inline `style`, which is how
+   * `@rentame/design-tokens` is consumed elsewhere in this codebase, e.g.
+   * `frontend/packages/design-tokens/src/tokens.css` variable names):
+   *   - Navbar background: `header.style.backgroundColor` SHALL equal the
+   *     literal string `'var(--color-primary)'`.
+   *   - Active link indicator: the active `<Link>` element SHALL have a
+   *     `style.borderBottom` containing the literal string
+   *     `'var(--color-accent)'`; the inactive link SHALL NOT.
+   *
+   * `AppLayout` currently renders a plain `<header>` with no
+   * `backgroundColor` and no per-route active-link styling, so both tests
+   * below are expected to fail against the current implementation (the
+   * genuine Red failure for this task) — not because of a broken import or
+   * setup, since `AppLayout` already exists and the earlier tests in this
+   * file pass against it.
+   */
+  describe('Navy visual identity (design-system-premium-real-estate)', () => {
+    it('renders the header with --color-primary as background', () => {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, TEST_TOKEN);
+      renderAppLayout();
+
+      const header = screen.getByRole('banner');
+      expect(header.style.backgroundColor).toBe('var(--color-primary)');
+    });
+
+    it('highlights "Mis inmuebles" with the accent border when on /mis-inmuebles, and not "Inicio"', () => {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, TEST_TOKEN);
+      renderAppLayout('/mis-inmuebles');
+
+      const misInmueblesLink = screen.getByRole('link', { name: /mis inmuebles/i });
+      const inicioLink = screen.getByRole('link', { name: /inicio/i });
+
+      expect(misInmueblesLink.style.borderBottom).toContain('var(--color-accent)');
+      expect(inicioLink.style.borderBottom).not.toContain('var(--color-accent)');
+    });
+
+    it('highlights "Inicio" with the accent border when on /, and not "Mis inmuebles"', () => {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, TEST_TOKEN);
+      renderAppLayout('/');
+
+      const inicioLink = screen.getByRole('link', { name: /inicio/i });
+      const misInmueblesLink = screen.getByRole('link', { name: /mis inmuebles/i });
+
+      expect(inicioLink.style.borderBottom).toContain('var(--color-accent)');
+      expect(misInmueblesLink.style.borderBottom).not.toContain('var(--color-accent)');
+    });
+  });
 });

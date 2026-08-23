@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@rentame/auth';
+import { Button, Input } from '@rentame/ui';
+import { typography } from '@rentame/design-tokens';
 import { login, UsuariosApiError } from '../services/usuarios.api';
-import { primaryButtonStyle } from '../styles/buttons';
 
 /**
  * Inicio de sesión con email y contraseña (HU-008).
@@ -41,12 +42,12 @@ const LoginPage: React.FC = () => {
 
   return (
     <div style={containerStyle}>
-      <h1>Iniciar sesión</h1>
+      <h1 style={titleStyle}>Iniciar sesión</h1>
 
       <form onSubmit={handleSubmit}>
         <div style={fieldStyle}>
           <label htmlFor="login-email">Email</label>
-          <input
+          <Input
             id="login-email"
             type="email"
             value={email}
@@ -56,7 +57,7 @@ const LoginPage: React.FC = () => {
 
         <div style={fieldStyle}>
           <label htmlFor="login-password">Contraseña</label>
-          <input
+          <Input
             id="login-password"
             type="password"
             value={password}
@@ -70,19 +71,26 @@ const LoginPage: React.FC = () => {
           </p>
         )}
 
-        <button type="submit" disabled={submitting} style={primaryButtonStyle}>
+        <Button type="submit" variant="primary" disabled={submitting}>
           Iniciar sesión
-        </button>
+        </Button>
       </form>
     </div>
   );
 };
 
 const containerStyle: React.CSSProperties = {
-  fontFamily: 'sans-serif',
+  fontFamily: typography.fontFamilyBase,
   padding: '2rem',
   maxWidth: '420px',
   margin: '0 auto',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontFamily: typography.fontFamilyDisplay,
+  fontSize: typography.fontSizeH1,
+  fontWeight: typography.fontWeightRegular,
+  color: 'var(--color-primary)',
 };
 
 const fieldStyle: React.CSSProperties = {

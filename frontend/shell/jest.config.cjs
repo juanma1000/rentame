@@ -19,6 +19,12 @@ module.exports = {
     // This avoids issues with the workspace symlink + transformIgnorePatterns.
     '^@rentame/auth$': '<rootDir>/../packages/auth/src/index.ts',
     '^@rentame/auth/(.*)$': '<rootDir>/../packages/auth/src/$1',
+    '^@rentame/ui$': '<rootDir>/../packages/ui/src/index.ts',
+    '^@rentame/ui/(.*)$': '<rootDir>/../packages/ui/src/$1',
+    '^@rentame/design-tokens$': '<rootDir>/../packages/design-tokens/src/index.ts',
+    '^@rentame/design-tokens/(.*)$': '<rootDir>/../packages/design-tokens/src/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
+    // CSS is not executable JS — stub it out (see jest.style-mock.cjs).
+    '\\.css$': '<rootDir>/jest.style-mock.cjs',
   },
 };

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@rentame/auth';
+import { Button, Input } from '@rentame/ui';
+import { typography } from '@rentame/design-tokens';
 import { registrar, UsuariosApiError } from '../services/usuarios.api';
 import type { Rol } from '../services/usuarios.api';
 import {
@@ -10,7 +12,6 @@ import {
   crearAgencia,
   solicitarUnirse,
 } from '../services/agencias.api';
-import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
 
 export interface RegistroPageProps {
   rol: Rol;
@@ -132,7 +133,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
   if (rol === 'agente' && agenciaStep !== 'ninguno') {
     return (
       <div style={containerStyle}>
-        <h1>Configura tu agencia</h1>
+        <h1 style={titleStyle}>Configura tu agencia</h1>
 
         {agenciaError && (
           <p role="alert" style={alertStyle}>
@@ -142,12 +143,12 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
 
         {agenciaStep === 'eleccion' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <button type="button" onClick={() => setAgenciaStep('crear')} style={secondaryButtonStyle}>
+            <Button type="button" variant="secondary" onClick={() => setAgenciaStep('crear')}>
               Crear agencia nueva
-            </button>
-            <button type="button" onClick={() => setAgenciaStep('buscar')} style={secondaryButtonStyle}>
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setAgenciaStep('buscar')}>
               Unirme a una agencia existente
-            </button>
+            </Button>
           </div>
         )}
 
@@ -155,7 +156,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
           <form onSubmit={handleCrearAgencia}>
             <div style={fieldStyle}>
               <label htmlFor="agencia-razon-social">Razón social</label>
-              <input
+              <Input
                 id="agencia-razon-social"
                 value={razonSocial}
                 onChange={(e) => setRazonSocial(e.target.value)}
@@ -163,15 +164,15 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
             </div>
             <div style={fieldStyle}>
               <label htmlFor="agencia-nit">NIT</label>
-              <input
+              <Input
                 id="agencia-nit"
                 value={nit}
                 onChange={(e) => setNit(e.target.value)}
               />
             </div>
-            <button type="submit" disabled={creandoAgencia} style={primaryButtonStyle}>
+            <Button type="submit" variant="primary" disabled={creandoAgencia}>
               Crear agencia
-            </button>
+            </Button>
           </form>
         )}
 
@@ -179,15 +180,15 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
           <div>
             <div style={fieldStyle}>
               <label htmlFor="agencia-buscar">Buscar agencia</label>
-              <input
+              <Input
                 id="agencia-buscar"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-            <button type="button" onClick={handleBuscarAgencias} disabled={buscando} style={secondaryButtonStyle}>
+            <Button type="button" variant="secondary" onClick={handleBuscarAgencias} disabled={buscando}>
               Buscar
-            </button>
+            </Button>
 
             <ul style={{ listStyle: 'none', padding: 0, marginTop: '1rem' }}>
               {resultados.map((agencia) => (
@@ -198,9 +199,9 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
                   {solicitudPendienteId === agencia.id ? (
                     <span>Solicitud pendiente</span>
                   ) : (
-                    <button type="button" onClick={() => handleSolicitarUnirse(agencia.id)} style={secondaryButtonStyle}>
+                    <Button type="button" variant="secondary" onClick={() => handleSolicitarUnirse(agencia.id)}>
                       Solicitar unirme
-                    </button>
+                    </Button>
                   )}
                 </li>
               ))}
@@ -216,12 +217,12 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
   // -------------------------------------------------------------------------
   return (
     <div style={containerStyle}>
-      <h1>{tituloPorRol[rol]}</h1>
+      <h1 style={titleStyle}>{tituloPorRol[rol]}</h1>
 
       <form onSubmit={handleSubmit}>
         <div style={fieldStyle}>
           <label htmlFor="registro-email">Email</label>
-          <input
+          <Input
             id="registro-email"
             type="email"
             value={email}
@@ -231,7 +232,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
 
         <div style={fieldStyle}>
           <label htmlFor="registro-password">Contraseña</label>
-          <input
+          <Input
             id="registro-password"
             type="password"
             value={password}
@@ -241,7 +242,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
 
         <div style={fieldStyle}>
           <label htmlFor="registro-nombre">Nombre</label>
-          <input
+          <Input
             id="registro-nombre"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -254,9 +255,9 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
           </p>
         )}
 
-        <button type="submit" disabled={submitting} style={primaryButtonStyle}>
+        <Button type="submit" variant="primary" disabled={submitting}>
           Registrarme
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -269,10 +270,17 @@ const tituloPorRol: Record<Rol, string> = {
 };
 
 const containerStyle: React.CSSProperties = {
-  fontFamily: 'sans-serif',
+  fontFamily: typography.fontFamilyBase,
   padding: '2rem',
   maxWidth: '420px',
   margin: '0 auto',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontFamily: typography.fontFamilyDisplay,
+  fontSize: typography.fontSizeH1,
+  fontWeight: typography.fontWeightRegular,
+  color: 'var(--color-primary)',
 };
 
 const fieldStyle: React.CSSProperties = {

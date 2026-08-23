@@ -541,3 +541,217 @@ class TestGetMisInmuebles:
         # Assert
         assert response.status_code == 200
         assert response.json() == []
+
+
+# ---------------------------------------------------------------------------
+# GET /inmuebles/publicos, GET /inmuebles/publicos/{id} (hu-003)
+# ---------------------------------------------------------------------------
+#
+# TDD Red phase: neither route exists yet — `main.py`/`router.py` register no
+# `GET /inmuebles/publicos*` path, so every request below is expected to
+# fail with FastAPI's default 404 (no matching route), not with an import
+# error (`listar_inmuebles_publicos`/`obtener_inmueble_publico`/
+# `InmuebleRepositoryPostgres.listar_disponibles` already exist and are
+# imported successfully by this file). Neither endpoint requires
+# `Authorization` — no header is ever sent below.
+#
+# This file fixes, by construction, the exact contract `backend-expert` must
+# implement:
+#
+# - `GET /inmuebles/publicos` — no auth. Returns `200` with a JSON array of
+#   `InmueblePublicoListItemResponse`, one per `Inmueble` in `estado ==
+#   "disponible"` (oculto/no_disponible excluded, empty array `[]` when none
+#   is disponible). Each item's shape:
+#   ```
+#   {
+#     "id": "<uuid>",
+#     "foto_principal": str | null,
+#     "direccion": str,
+#     "barrio": str,
+#     "ciudad": str,
+#     "valor_mensual": number,
+#     "habitaciones": int,
+#     "banos": int
+#   }
+#   ```
+#   `foto_principal` is the `url_storage` of the `Inmueble`'s
+#   `FotoInmueble` with `es_principal == True` (the domain guarantees
+#   exactly one photo has `es_principal == True` whenever there is at least
+#   one photo, per `Inmueble.crear`, so it is never `null` for any
+#   `Inmueble` reachable through this project's `POST`/seed helpers; typed
+#   nullable here only to not over-assume that invariant at the API-schema
+#   level).
+#
+# - `GET /inmuebles/publicos/{id}` — no auth. Returns `200` with a single
+#   `InmueblePublicoResponse` when the `Inmueble` exists AND is
+#   `estado == "disponible"`:
+#   ```
+#   {
+#     "id": "<uuid>",
+#     "direccion": str,
+#     "barrio": str,
+#     "ciudad": str,
+#     "tipo": str,
+#     "area_m2": number,
+#     "habitaciones": int,
+#     "banos": int,
+#     "valor_mensual": number,
+#     "descripcion": str,
+#     "fotos": [
+#       {"url_storage": str, "orden": int, "es_principal": bool},
+#       ...
+#     ]
+#   }
+#   ```
+#   (no `propietario_id`/`agente_id`/`estado`/`storage_key` — those are
+#   private-endpoint-only fields per `design.md` decisión 4, to avoid
+#   leaking data with no public reason to exist). Returns `404` with body
+#   `{"detail": "<message>"}` when the id does not exist, or exists but is
+#   `oculto`/`no_disponible` — indistinguishable from an unknown id, per
+#   `specs/inmuebles/spec.md`'s "El detalle público rechaza un inmueble no
+#   disponible" scenario (never reveals that a hidden inmueble exists).
+
+
+async def _seed_oculto(db_session: AsyncSession, propietario_id: uuid.UUID, **overrides: object) -> Inmueble:
+    repository = InmuebleRepositoryPostgres(db_session)
+    inmueble = await _seed_inmueble(db_session, propietario_id, **overrides)
+    inmueble.despublicar()
+    actualizado = await repository.actualizar(inmueble)
+    await db_session.flush()
+    return actualizado
+
+
+async def _seed_no_disponible(
+    db_session: AsyncSession, propietario_id: uuid.UUID, **overrides: object
+) -> Inmueble:
+    repository = InmuebleRepositoryPostgres(db_session)
+    inmueble = await _seed_inmueble(db_session, propietario_id, **overrides)
+    inmueble.marcar_no_disponible()
+    actualizado = await repository.actualizar(inmueble)
+    await db_session.flush()
+    return actualizado
+
+
+class TestGetInmueblesPublicos:
+    async def test_should_return_200_with_only_disponible_inmuebles(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        disponible = await _seed_inmueble(
+            db_session, seed_propietario.id, direccion="Calle Disponible # 1-01"
+        )
+        await _seed_oculto(db_session, seed_propietario.id, direccion="Calle Oculta # 2-02")
+        await _seed_no_disponible(
+            db_session, seed_propietario.id, direccion="Calle No Disponible # 3-03"
+        )
+
+        # Act
+        response = await client.get("/inmuebles/publicos")
+
+        # Assert
+        assert response.status_code == 200
+        body = response.json()
+        assert [item["id"] for item in body] == [str(disponible.id)]
+        item = body[0]
+        assert item["direccion"] == "Calle Disponible # 1-01"
+        assert item["barrio"] == disponible.barrio
+        assert item["ciudad"] == disponible.ciudad
+        assert item["valor_mensual"] == 1500000
+        assert item["habitaciones"] == disponible.habitaciones
+        assert item["banos"] == disponible.banos
+        assert item["foto_principal"] == disponible.fotos[0].url_storage
+        assert "estado" not in item
+        assert "propietario_id" not in item
+
+    async def test_should_return_200_with_empty_list_when_no_inmueble_is_disponible(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        await _seed_oculto(db_session, seed_propietario.id)
+        await _seed_no_disponible(db_session, seed_propietario.id)
+
+        # Act
+        response = await client.get("/inmuebles/publicos")
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+class TestGetInmueblePublicoDetalle:
+    async def test_should_return_200_with_all_fotos_ordered_when_disponible(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        inmueble = await _seed_inmueble(db_session, seed_propietario.id, fotos_count=3)
+
+        # Act
+        response = await client.get(f"/inmuebles/publicos/{inmueble.id}")
+
+        # Assert
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == str(inmueble.id)
+        assert body["descripcion"] == inmueble.descripcion
+        assert body["tipo"] == inmueble.tipo
+        assert body["area_m2"] == 65.5
+        assert body["habitaciones"] == inmueble.habitaciones
+        assert body["banos"] == inmueble.banos
+        assert body["valor_mensual"] == 1500000
+        assert "estado" not in body
+        assert "propietario_id" not in body
+        assert [foto["orden"] for foto in body["fotos"]] == [1, 2, 3]
+        assert [foto["url_storage"] for foto in body["fotos"]] == [
+            foto.url_storage for foto in inmueble.fotos
+        ]
+
+    async def test_should_return_404_when_inmueble_is_oculto(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        inmueble = await _seed_oculto(db_session, seed_propietario.id)
+
+        # Act
+        response = await client.get(f"/inmuebles/publicos/{inmueble.id}")
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_should_return_404_when_inmueble_is_no_disponible(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        inmueble = await _seed_no_disponible(db_session, seed_propietario.id)
+
+        # Act
+        response = await client.get(f"/inmuebles/publicos/{inmueble.id}")
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_should_return_404_when_inmueble_id_does_not_exist(
+        self, client: httpx.AsyncClient
+    ) -> None:
+        # Arrange
+        inmueble_id = uuid.uuid4()
+
+        # Act
+        response = await client.get(f"/inmuebles/publicos/{inmueble_id}")
+
+        # Assert
+        assert response.status_code == 404

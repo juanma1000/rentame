@@ -257,3 +257,80 @@ class TestInmuebleRepositoryPostgresListarPorPropietarios:
 
         # Assert
         assert resultado == []
+
+
+class TestInmuebleRepositoryPostgresListarDisponibles:
+    """Covers `openspec/changes/hu-003/specs/inmuebles/spec.md` requirement
+    "Listado público de inmuebles disponibles" and `design.md` decisión 2 of
+    that change: real integration tests, against Postgres, for the new
+    `listar_disponibles()` method.
+
+    TDD Red phase: `listar_disponibles` does not exist yet on
+    `InmuebleRepositoryPostgres`, so every test here is expected to fail with
+    `AttributeError` until `backend-expert` adds it. This class fixes, by
+    construction, the contract `backend-expert` must satisfy:
+
+    - `listar_disponibles() -> list[Inmueble]`: returns every `Inmueble`
+      whose `estado` is `EstadoInmueble.DISPONIBLE` (filters at the query
+      level, `WHERE estado = 'disponible'`), regardless of owner, and an
+      empty list when none match.
+    """
+
+    async def test_should_return_only_inmuebles_in_estado_disponible(
+        self, db_session: AsyncSession, seed_propietario: UsuarioORM
+    ) -> None:
+        # Arrange
+        repository = InmuebleRepositoryPostgres(db_session)
+        otro_propietario = await _seed_otro_propietario(db_session)
+
+        disponible_1 = _build_inmueble(
+            seed_propietario.id, fotos_count=1, direccion="Calle 1 # 1-01"
+        )
+        disponible_2 = _build_inmueble(
+            otro_propietario.id, fotos_count=1, direccion="Calle 2 # 2-02"
+        )
+        oculto = _build_inmueble(seed_propietario.id, fotos_count=1, direccion="Calle 3 # 3-03")
+        no_disponible = _build_inmueble(
+            otro_propietario.id, fotos_count=1, direccion="Calle 4 # 4-04"
+        )
+
+        guardado_disponible_1 = await repository.guardar(disponible_1)
+        guardado_disponible_2 = await repository.guardar(disponible_2)
+        guardado_oculto = await repository.guardar(oculto)
+        guardado_no_disponible = await repository.guardar(no_disponible)
+        await db_session.flush()
+
+        guardado_oculto.despublicar()
+        await repository.actualizar(guardado_oculto)
+        guardado_no_disponible.marcar_no_disponible()
+        await repository.actualizar(guardado_no_disponible)
+        await db_session.flush()
+
+        # Act
+        disponibles = await repository.listar_disponibles()
+
+        # Assert
+        assert {inmueble.id for inmueble in disponibles} == {
+            guardado_disponible_1.id,
+            guardado_disponible_2.id,
+        }
+        assert all(inmueble.estado == EstadoInmueble.DISPONIBLE for inmueble in disponibles)
+
+    async def test_should_return_empty_list_when_no_inmueble_is_disponible(
+        self, db_session: AsyncSession, seed_propietario: UsuarioORM
+    ) -> None:
+        # Arrange
+        repository = InmuebleRepositoryPostgres(db_session)
+        oculto = _build_inmueble(seed_propietario.id, fotos_count=1)
+        guardado_oculto = await repository.guardar(oculto)
+        await db_session.flush()
+
+        guardado_oculto.despublicar()
+        await repository.actualizar(guardado_oculto)
+        await db_session.flush()
+
+        # Act
+        disponibles = await repository.listar_disponibles()
+
+        # Assert
+        assert disponibles == []

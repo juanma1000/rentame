@@ -20,7 +20,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from inmuebles.domain.inmueble import Inmueble
+from inmuebles.domain.inmueble import EstadoInmueble, Inmueble
 
 
 @dataclass
@@ -79,6 +79,18 @@ class FakeInmuebleRepository:
             inmueble
             for inmueble in self._inmuebles.values()
             if inmueble.propietario_id in propietario_id_set
+        ]
+
+    async def listar_disponibles(self) -> list[Inmueble]:
+        """In-memory stand-in for the `hu-003` port method (design.md
+        decisión 2) backing `listar_inmuebles_publicos`. Returns every
+        `Inmueble` whose `estado` is `EstadoInmueble.DISPONIBLE` (empty list
+        when none match), mirroring the `WHERE estado = 'disponible'` filter
+        the real `InmuebleRepositoryPostgres.listar_disponibles()` will run."""
+        return [
+            inmueble
+            for inmueble in self._inmuebles.values()
+            if inmueble.estado == EstadoInmueble.DISPONIBLE
         ]
 
 

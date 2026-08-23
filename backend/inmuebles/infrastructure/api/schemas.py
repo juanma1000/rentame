@@ -93,6 +93,101 @@ class InmuebleResponse(BaseModel):
         )
 
 
+class InmueblePublicoListItemResponse(BaseModel):
+    """Response body item for `GET /inmuebles/publicos` (hu-003 task 3.2).
+
+    Deliberately narrower than `InmuebleResponse`: no `propietario_id`,
+    `agente_id` nor `estado` are exposed to anonymous callers. `foto_principal`
+    is the `url_storage` of the inmueble's `es_principal` foto, or `None`
+    when it has no photos at all.
+    """
+
+    id: uuid.UUID
+    foto_principal: str | None
+    direccion: str
+    barrio: str
+    ciudad: str
+    valor_mensual: float
+    habitaciones: int
+    banos: int
+
+    @classmethod
+    def from_domain(cls, inmueble: Inmueble) -> InmueblePublicoListItemResponse:
+        if inmueble.id is None:
+            raise ValueError(
+                "cannot build InmueblePublicoListItemResponse from an Inmueble without an id"
+            )
+        foto_principal = next(
+            (foto.url_storage for foto in inmueble.fotos if foto.es_principal), None
+        )
+        return cls(
+            id=inmueble.id,
+            foto_principal=foto_principal,
+            direccion=inmueble.direccion,
+            barrio=inmueble.barrio,
+            ciudad=inmueble.ciudad,
+            valor_mensual=float(inmueble.valor_mensual),
+            habitaciones=inmueble.habitaciones,
+            banos=inmueble.banos,
+        )
+
+
+class FotoPublicaResponse(BaseModel):
+    """Photo shape exposed by `GET /inmuebles/publicos/{id}` (hu-003 task
+    3.4) — no `storage_key`, unlike `FotoResponse`, since anonymous callers
+    only ever need the resolvable `url_storage`."""
+
+    url_storage: str
+    orden: int
+    es_principal: bool
+
+    @classmethod
+    def from_domain(cls, foto: FotoInmueble) -> FotoPublicaResponse:
+        return cls(
+            url_storage=foto.url_storage,
+            orden=foto.orden,
+            es_principal=foto.es_principal,
+        )
+
+
+class InmueblePublicoResponse(BaseModel):
+    """Response body for `GET /inmuebles/publicos/{id}` (hu-003 task 3.4).
+
+    Like `InmueblePublicoListItemResponse`, excludes `propietario_id`,
+    `agente_id` and `estado` from anonymous callers.
+    """
+
+    id: uuid.UUID
+    direccion: str
+    barrio: str
+    ciudad: str
+    tipo: str
+    area_m2: float
+    habitaciones: int
+    banos: int
+    valor_mensual: float
+    descripcion: str
+    fotos: list[FotoPublicaResponse]
+
+    @classmethod
+    def from_domain(cls, inmueble: Inmueble) -> InmueblePublicoResponse:
+        if inmueble.id is None:
+            raise ValueError("cannot build InmueblePublicoResponse from an Inmueble without an id")
+        return cls(
+            id=inmueble.id,
+            direccion=inmueble.direccion,
+            barrio=inmueble.barrio,
+            ciudad=inmueble.ciudad,
+            tipo=inmueble.tipo,
+            area_m2=float(inmueble.area_m2),
+            habitaciones=inmueble.habitaciones,
+            banos=inmueble.banos,
+            valor_mensual=float(inmueble.valor_mensual),
+            descripcion=inmueble.descripcion,
+            fotos=[FotoPublicaResponse.from_domain(foto) for foto in inmueble.fotos],
+        )
+
+
 class InmuebleEditRequest(BaseModel):
     """JSON body accepted by `PUT /inmuebles/{id}` — same editable data
     fields `Inmueble.actualizar_datos` accepts, no `fotos`."""

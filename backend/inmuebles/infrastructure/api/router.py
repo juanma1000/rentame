@@ -52,9 +52,14 @@ from inmuebles.application.cambiar_disponibilidad import (
 )
 from inmuebles.application.editar_inmueble import EditarInmuebleCommand, editar_inmueble
 from inmuebles.application.listar_inmuebles_gestionados import listar_inmuebles_gestionados
+from inmuebles.application.listar_inmuebles_publicos import listar_inmuebles_publicos
 from inmuebles.application.listar_mis_inmuebles import (
     ListarMisInmueblesCommand,
     listar_mis_inmuebles,
+)
+from inmuebles.application.obtener_inmueble_publico import (
+    ObtenerInmueblePublicoCommand,
+    obtener_inmueble_publico,
 )
 from inmuebles.application.publicar_inmueble import (
     FotoParaPublicar,
@@ -66,6 +71,8 @@ from inmuebles.domain.inmueble import EstadoInmueble
 from inmuebles.infrastructure.api.schemas import (
     CambiarDisponibilidadRequest,
     InmuebleEditRequest,
+    InmueblePublicoListItemResponse,
+    InmueblePublicoResponse,
     InmuebleResponse,
 )
 from inmuebles.infrastructure.external.s3_storage_adapter import S3StorageAdapter
@@ -251,6 +258,44 @@ async def crear_inmueble(
 
     inmueble = await publicar_inmueble(command, repository=repository, storage=storage)
     return InmuebleResponse.from_domain(inmueble)
+
+
+@router.get("/publicos", response_model=list[InmueblePublicoListItemResponse])
+async def listar_inmuebles_publicos_endpoint(
+    repository: Repository,
+) -> list[InmueblePublicoListItemResponse]:
+    """`GET /inmuebles/publicos` (hu-003) — every listing in estado
+    `disponible`, with no authentication required (empty list when none
+    are `disponible`).
+
+    Declared before `PUT /{inmueble_id}` and `PATCH
+    /{inmueble_id}/disponibilidad`: FastAPI/Starlette matches route
+    templates in declaration order, and `/inmuebles/publicos` would
+    otherwise be captured by `/inmuebles/{inmueble_id}` (with
+    `inmueble_id="publicos"`), returning 405 instead of reaching this
+    handler.
+    """
+    inmuebles = await listar_inmuebles_publicos(repository=repository)
+    return [InmueblePublicoListItemResponse.from_domain(inmueble) for inmueble in inmuebles]
+
+
+@router.get("/publicos/{inmueble_id}", response_model=InmueblePublicoResponse)
+async def obtener_inmueble_publico_endpoint(
+    inmueble_id: uuid.UUID,
+    repository: Repository,
+) -> InmueblePublicoResponse:
+    """`GET /inmuebles/publicos/{inmueble_id}` (hu-003) — full detail of a
+    single `disponible` listing, with no authentication required.
+
+    404 when the id does not exist, or exists but is `oculto`/`no_disponible`
+    (`obtener_inmueble_publico` already collapses both cases into `None`,
+    never leaking existence/data of a non-`disponible` inmueble).
+    """
+    command = ObtenerInmueblePublicoCommand(inmueble_id=inmueble_id)
+    inmueble = await obtener_inmueble_publico(command, repository=repository)
+    if inmueble is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inmueble no encontrado")
+    return InmueblePublicoResponse.from_domain(inmueble)
 
 
 @router.put("/{inmueble_id}", response_model=InmuebleResponse)

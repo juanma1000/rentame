@@ -94,6 +94,19 @@ class InmuebleRepositoryPostgres:
         modelos = resultado.scalars().all()
         return [self._a_dominio(modelo) for modelo in modelos]
 
+    async def listar_disponibles(self) -> list[Inmueble]:
+        """Return every `Inmueble` in estado `disponible` (empty list if
+        none), filtering at the query level, per hu-003 design.md decisión 2.
+        """
+        query = (
+            select(InmuebleORM)
+            .where(InmuebleORM.estado == EstadoInmueble.DISPONIBLE.value)
+            .options(selectinload(InmuebleORM.fotos))
+        )
+        resultado = await self._session.execute(query)
+        modelos = resultado.scalars().all()
+        return [self._a_dominio(modelo) for modelo in modelos]
+
     @staticmethod
     def _a_orm(inmueble: Inmueble) -> InmuebleORM:
         """Map a domain `Inmueble` (plus its `fotos`) to a new `InmuebleORM`."""

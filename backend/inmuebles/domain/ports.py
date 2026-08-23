@@ -49,6 +49,12 @@ class InmuebleRepositoryPort(Protocol):
         """
         ...
 
+    async def listar_disponibles(self) -> list[Inmueble]:
+        """Return every `Inmueble` in estado `disponible` (empty list if none),
+        filtered at the query level, per hu-003 design.md decisión 2.
+        """
+        ...
+
 
 class StoragePort(Protocol):
     """Object storage contract (S3/MinIO) used to persist inmueble photos.

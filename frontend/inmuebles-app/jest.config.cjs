@@ -4,7 +4,7 @@ module.exports = {
   // Runs before the test framework initialises: stubs global.fetch so that
   // jest.spyOn(global, 'fetch') works in the jsdom environment, which does
   // not expose a native fetch on its window by default.
-  setupFiles: ['<rootDir>/jest.setup-fetch.cjs'],
+  setupFiles: ['<rootDir>/jest.setup-fetch.cjs', '<rootDir>/jest.setup-url.cjs'],
   transform: {
     // Use the custom jest-transform wrapper for TypeScript/TSX sources.
     // For JS/MJS files from react-router (pure ESM, no CJS variant) the same
@@ -23,5 +23,7 @@ module.exports = {
     '^@rentame/auth$': '<rootDir>/../packages/auth/src/index.ts',
     '^@rentame/auth/(.*)$': '<rootDir>/../packages/auth/src/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
+    // CSS is not executable JS — stub it out (see jest.style-mock.cjs).
+    '\\.css$': '<rootDir>/jest.style-mock.cjs',
   },
 };

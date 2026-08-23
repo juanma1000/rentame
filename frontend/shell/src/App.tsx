@@ -5,6 +5,7 @@ import EntradaPage from './pages/EntradaPage';
 import LoginPage from './pages/LoginPage';
 import RegistroPage from './pages/RegistroPage';
 import PrivateLayout from './layouts/PrivateLayout';
+import AppLayout from './layouts/AppLayout';
 import MisInmueblesPage from './pages/MisInmueblesPage';
 import BusquedaPublicaShellPage from './pages/BusquedaPublicaShellPage';
 
@@ -14,13 +15,17 @@ import BusquedaPublicaShellPage from './pages/BusquedaPublicaShellPage';
  * AuthProvider wraps the entire tree so the auth context (session, role,
  * login/logout) is available to every route, layout and lazy-loaded remote.
  *
- * Route structure (HU-003)
+ * Route structure (ui-layout-navegacion)
  * ────────────────
- *  /                     → BusquedaPublicaShellPage (nuevo landing público:
+ * Every route is nested under a single `AppLayout` (see
+ * `layouts/AppLayout.tsx`), which renders the session-aware navigation
+ * header and brand footer once, around whatever page mounts via
+ * `<Outlet/>`.
+ *
+ *  /                     → BusquedaPublicaShellPage (landing público:
  *                          header + inmueblesApp/BusquedaPublicaRoutes remote)
  *  /login                → LoginPage
- *  /publicar             → EntradaPage (reubicada desde "/"; pantalla de
- *                          entrada simétrica por rol)
+ *  /publicar             → EntradaPage (pantalla de entrada simétrica por rol)
  *  /registro/propietario → RegistroPage rol="propietario"
  *  /registro/agente      → RegistroPage rol="agente"
  *  /registro/inquilino   → RegistroPage rol="inquilino"
@@ -29,38 +34,40 @@ import BusquedaPublicaShellPage from './pages/BusquedaPublicaShellPage';
  *  *                     → 404 fallback
  *
  * PrivateLayout uses AuthGuard with fallback={<Navigate to="/" replace />}.
- * Unauthenticated visits to any /mis-* route redirect to the new public
+ * Unauthenticated visits to any /mis-* route redirect to the public
  * landing at "/".
  */
 const App: React.FC = () => (
   <AuthProvider>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<BusquedaPublicaShellPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/publicar" element={<EntradaPage />} />
-        <Route path="/registro/propietario" element={<RegistroPage rol="propietario" />} />
-        <Route path="/registro/agente" element={<RegistroPage rol="agente" />} />
-        <Route path="/registro/inquilino" element={<RegistroPage rol="inquilino" />} />
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<BusquedaPublicaShellPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/publicar" element={<EntradaPage />} />
+          <Route path="/registro/propietario" element={<RegistroPage rol="propietario" />} />
+          <Route path="/registro/agente" element={<RegistroPage rol="agente" />} />
+          <Route path="/registro/inquilino" element={<RegistroPage rol="inquilino" />} />
 
-        {/* Protected routes — require an active session via PrivateLayout */}
-        <Route element={<PrivateLayout />}>
-          {/*
-           * /mis-inmuebles: placeholder for the inmuebles-app MFE remote.
-           * Real content is lazy-loaded via Module Federation from task 16+.
-           */}
-          <Route path="/mis-inmuebles" element={<MisInmueblesPage />} />
+          {/* Protected routes — require an active session via PrivateLayout */}
+          <Route element={<PrivateLayout />}>
+            {/*
+             * /mis-inmuebles: placeholder for the inmuebles-app MFE remote.
+             * Real content is lazy-loaded via Module Federation from task 16+.
+             */}
+            <Route path="/mis-inmuebles" element={<MisInmueblesPage />} />
+          </Route>
+
+          <Route
+            path="*"
+            element={
+              <div style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
+                <h2>Rentame</h2>
+                <p>Ruta no encontrada.</p>
+              </div>
+            }
+          />
         </Route>
-
-        <Route
-          path="*"
-          element={
-            <div style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
-              <h2>Rentame</h2>
-              <p>Ruta no encontrada.</p>
-            </div>
-          }
-        />
       </Routes>
     </BrowserRouter>
   </AuthProvider>

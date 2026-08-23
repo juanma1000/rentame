@@ -652,24 +652,33 @@ backend/
 │   │   └── exceptions.py            # InmuebleNoEncontrado, PropietarioInvalido
 │   ├── application/
 │   │   ├── publicar_inmueble.py     # UC: crea inmueble + sube fotos a storage (acepta agente_id opcional, HU-002)
-│   │   ├── buscar_inmuebles.py      # UC: búsqueda con filtros, solo estado=DISPONIBLE
-│   │   ├── obtener_detalle.py       # UC: detalle público de un inmueble
+│   │   ├── listar_inmuebles_publicos.py # UC (HU-003): todos los inmuebles estado=DISPONIBLE, sin filtros
+│   │   ├── obtener_inmueble_publico.py  # UC (HU-003): detalle de un inmueble; None si no existe o no
+│   │   │                            # está DISPONIBLE (nunca revela oculto/no_disponible → 404 en el router)
 │   │   ├── editar_inmueble.py       # UC: actualizar datos o fotos
 │   │   ├── cambiar_disponibilidad.py# UC: ocultar/publicar/marcar no disponible
 │   │   └── listar_inmuebles_gestionados.py # UC (HU-002): inmuebles de una lista de propietario_id
 │   │                                # ya resuelta por la API (nunca importa `agencias`)
 │   └── infrastructure/
 │       ├── api/
-│       │   ├── router.py            # GET /inmuebles, GET /inmuebles/{id}, POST /inmuebles, PUT, PATCH,
-│       │   │                        # GET /inmuebles/gestionados (HU-002) — este router es el único lugar
-│       │   │                        # de `inmuebles` que consulta los repositorios de `agencias` para
-│       │   │                        # resolver autorización de agente (ver design.md de hu-002)
-│       │   └── schemas.py           # InmuebleCreateRequest, InmuebleResponse (incluye agente_id), FiltrosQuery
+│       │   ├── router.py            # GET /inmuebles/publicos, GET /inmuebles/publicos/{id} (HU-003,
+│       │   │                        # sin autenticación — declarados antes de PUT/PATCH /{inmueble_id}
+│       │   │                        # para que el path literal "publicos" no sea capturado por el
+│       │   │                        # path param), POST /inmuebles, PUT /{id}, PATCH /{id}/disponibilidad,
+│       │   │                        # GET /inmuebles/mios, GET /inmuebles/gestionados (HU-002) — este
+│       │   │                        # router es el único lugar de `inmuebles` que consulta los
+│       │   │                        # repositorios de `agencias` para resolver autorización de agente
+│       │   │                        # (ver design.md de hu-002)
+│       │   └── schemas.py           # InmuebleCreateRequest, InmuebleResponse (incluye agente_id),
+│       │                            # InmueblePublicoListItemResponse, InmueblePublicoResponse (HU-003 —
+│       │                            # schemas de respuesta separados de los privados, ver decisiones)
 │       ├── persistence/
 │       │   ├── models.py            # InmuebleORM, FotoInmuebleORM
-│       │   └── repository.py        # InmuebleRepositoryPostgres
+│       │   └── repository.py        # InmuebleRepositoryPostgres — incluye listar_disponibles() (HU-003,
+│       │                            # sin paginación en v1), obtener_por_id() reutilizado para el detalle
 │       └── external/
-│           └── s3_storage_adapter.py# StoragePort → boto3 S3/MinIO, proxy por backend
+│           └── s3_storage_adapter.py# StoragePort → boto3 S3/MinIO, proxy por backend — construir_url()
+│                                    # usa storage_public_url si está configurado (ver decisiones, HU-003)
 │
 ├── agencias/                         # HU-007 — fundacional para HU-002
 │   ├── domain/
@@ -792,10 +801,16 @@ frontend/
 ├── shell/                              # Host: portal contenedor
 │   ├── src/
 │   │   ├── main.tsx                    # Punto de entrada; monta App con AuthProvider
-│   │   ├── App.tsx                     # Router global: EntradaPage/LoginPage/RegistroPage como
-│   │   │                              # rutas públicas (HU-008); PrivateLayout protege /mis-inmuebles
+│   │   ├── App.tsx                     # Router global (HU-003): "/" monta BusquedaPublicaShellPage
+│   │   │                              # (nueva landing pública); "/publicar" monta EntradaPage
+│   │   │                              # (reubicada desde "/"); LoginPage/RegistroPage sin cambios;
+│   │   │                              # PrivateLayout protege /mis-inmuebles
 │   │   ├── pages/
-│   │   │   ├── EntradaPage.tsx         # HU-008: pantalla de entrada, 3 opciones simétricas por rol
+│   │   │   ├── BusquedaPublicaShellPage.tsx # HU-003: nueva landing ("/") — header con "Publicar mi
+│   │   │   │                          # inmueble" (→ /publicar) e "Iniciar sesión" (→ /login), monta
+│   │   │   │                          # lazy `inmueblesApp/BusquedaPublicaRoutes` (React.lazy) debajo
+│   │   │   ├── EntradaPage.tsx         # HU-008: pantalla de entrada, 3 opciones simétricas por rol;
+│   │   │   │                          # reubicada a "/publicar" por HU-003, sin cambios internos
 │   │   │   ├── LoginPage.tsx           # HU-008: login email+contraseña; error único sin distinguir dato
 │   │   │   ├── RegistroPage.tsx        # HU-008: formulario parametrizado por rol (prop `rol`); para
 │   │   │   │                          # rol=agente encadena el paso de agencia (crear vs. buscar y unirse)
@@ -814,7 +829,12 @@ frontend/
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── busqueda-app/                       # Remote: búsqueda pública de inmuebles (HU-003)
+├── busqueda-app/                       # Remote planteado originalmente para la búsqueda pública.
+│   │                                    # NO se implementó en HU-003 v1: el listado/detalle público
+│   │                                    # se construyó dentro de `inmuebles-app` en su lugar (ver
+│   │                                    # decisiones y el árbol de `inmuebles-app` más abajo). Esta
+│   │                                    # sección queda como diseño de referencia para una eventual
+│   │                                    # extracción futura si el tráfico público lo justifica.
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── PropertyCard.tsx        # Tarjeta en listado: foto, precio, habitaciones
@@ -833,9 +853,18 @@ frontend/
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── inmuebles-app/                      # Remote: gestión de inmuebles (HU-001, HU-002)
+├── inmuebles-app/                      # Remote: gestión de inmuebles (HU-001, HU-002) y, desde
+│   │                                    # HU-003, también el listado/detalle público (ver decisiones —
+│   │                                    # v1 no crea el remote `busqueda-app` planteado originalmente
+│   │                                    # en este documento; todo el dominio Inmueble, público y
+│   │                                    # privado, queda en `inmuebles-app`)
 │   ├── src/
 │   │   ├── pages/
+│   │   │   ├── BusquedaPublicaPage.tsx     # HU-003: listado público (sin sesión) — solo inmuebles
+│   │   │   │                              # estado=disponible; tarjeta con foto, barrio, valor,
+│   │   │   │                              # habitaciones y baños; sin filtros en v1
+│   │   │   ├── InmuebleDetallePublicoPage.tsx # HU-003: detalle público completo (todas las fotos,
+│   │   │   │                              # descripción, datos del formulario); sin sesión
 │   │   │   ├── PublicarInmueblePage.tsx    # Formulario de publicación; selector de propietario
 │   │   │   │                              # condicional por rol (agente, HU-002)
 │   │   │   ├── EditarInmueblePage.tsx      # Edición — recibe el inmueble por prop, no por fetch
@@ -843,12 +872,17 @@ frontend/
 │   │   │   └── InmueblesGestionadosPage.tsx# Panel del agente (HU-002): cartera de su agencia
 │   │   ├── services/
 │   │   │   ├── inmuebles.api.ts        # publicarInmueble(), editarInmueble(), cambiarDisponibilidad(),
-│   │   │   │                          # listarMisInmuebles(), listarInmueblesGestionados()
+│   │   │   │                          # listarMisInmuebles(), listarInmueblesGestionados(),
+│   │   │   │                          # listarPublicos(), obtenerPublico(id) (HU-003 — sin token)
 │   │   │   └── agencias.api.ts         # listarPropietariosVinculados() — GET /agencias/mia/propietarios
+│   │   ├── BusquedaPublicaRoutes.tsx   # HU-003: expuesto vía Module Federation
+│   │   │                              # (./BusquedaPublicaRoutes) — state machine local listado↔detalle,
+│   │   │                              # consumido por shell/src/pages/BusquedaPublicaShellPage.tsx
 │   │   ├── PropertyRoutes.tsx          # Expuesto vía Module Federation (./PropertyRoutes);
 │   │   │                              # decide MisInmueblesPage vs InmueblesGestionadosPage por rol
 │   │   └── main.tsx / bootstrap.tsx
-│   ├── rspack.config.ts                # exposes: { './PropertyRoutes': './src/PropertyRoutes' }
+│   ├── rspack.config.ts                # exposes: { './PropertyRoutes': ..., './BusquedaPublicaRoutes':
+│   │                                  # './src/BusquedaPublicaRoutes' }
 │   ├── package.json
 │   └── tsconfig.json
 │
@@ -963,6 +997,8 @@ export default {
 | Base de datos relacional | PostgreSQL | Modelo de datos con relaciones claras (solicitud → contrato → arrendamiento → pagos). ACID requerido para transacciones de pago. PostgreSQL tiene soporte nativo de UUID, JSONB para respuestas de proveedores, y row-level security útil a futuro. |
 | Object storage | S3-compatible (MinIO local / AWS S3 producción) | Las fotos de inmuebles y documentos del inquilino no son datos relacionales. boto3 como cliente abstrae la diferencia entre MinIO y S3 real. El adaptador `s3_storage_adapter.py` implementa `StoragePort`. |
 | Mecanismo de subida de fotos | Proxy por backend (multipart), no presigned URLs | Resuelto en el change `hu-001` (ver `design.md`): el frontend envía los bytes en el mismo `multipart/form-data` que el resto del formulario de publicación, y el backend los sube a S3/MinIO. Se prefirió sobre presigned URLs por simplicidad para el primer dominio implementado (evita configurar CORS en el bucket y un endpoint adicional de generación de URLs firmadas). Corrige una inconsistencia de una versión anterior de este documento, donde la tabla de decisiones mencionaba presigned URLs pero el diagrama de secuencia de publicación siempre mostró el flujo de proxy por backend. |
+| URL pública de fotos (`storage_public_url`) | `Settings.storage_public_url`, usado por `S3StorageAdapter.construir_url()` con fallback a `storage_endpoint_url`; `docker-compose.yml` setea `STORAGE_PUBLIC_URL=http://localhost:9000` para el backend | Corrige un bug de infraestructura preexistente desde `hu-001`, encontrado durante `hu-003`: `FotoInmueble.url_storage` se construía con el hostname interno de Docker (`http://minio:9000`), que el backend sí resuelve (red interna de compose) pero el navegador nunca puede resolver — las fotos no cargaban en el cliente. Al separar la URL "pública" (browser-reachable) de la URL "interna" (`storage_endpoint_url`, usada para las operaciones `boto3` del propio backend) se resuelve sin acoplar el dominio ni el resto de la infraestructura de storage. |
+| Ubicación del listado/detalle público de `inmuebles` | Dentro de `inmuebles-app` (componente `BusquedaPublicaRoutes`), no en un remote `busqueda-app` separado | Resuelto en `hu-003`: se prefirió mantener todo el dominio `Inmueble` (público y privado) en un solo microfrontend en vez de crear el remote `busqueda-app` planteado originalmente en este documento (fila "Split `busqueda-app` vs `inmuebles-app`" más abajo, y sección 5). `shell` solo monta el header (`BusquedaPublicaShellPage`) con las dos acciones alrededor del componente lazy-cargado. Si el tráfico público justifica un ciclo de despliegue independiente, la extracción a `busqueda-app` queda como evolución futura sin cambios de dominio. |
 | Autenticación | JWT de solo access token (sin refresh token) | Resuelto en `hu-008` — implementado en `backend/usuarios/` (registro, login) reutilizando `shared/infrastructure/auth/jwt_handler.py` sin modificarlo. La idea original de este documento (refresh token en cookie HttpOnly) fue descartada explícitamente como no-goal de esa HU: la sesión es solo access token y, al expirar, el usuario vuelve a loguearse — sin mecanismo de refresh. El singleton `@rentame/auth` gestiona el ciclo de vida de ese único token para todos los remotes. |
 | `output.publicPath` del shell (Rspack) | Absoluto (`'/'`), no `'auto'` | nginx sirve `index.html` como fallback SPA para cualquier ruta (ej. navegación directa a `/registro/agente`). Con `'auto'`, el navegador resuelve la URL del script relativa a esa ruta (`/registro/main.js` → 404 → nginx devuelve `index.html` como si fuera JS → error `"Unexpected token '<'"` en runtime). Como el shell siempre se sirve desde la raíz del dominio, `'/'` es correcto en todo despliegue (ver `frontend/shell/rspack.config.ts`). |
 | Plataforma objetivo | Web responsiva (no PWA nativa) | Cumple el requisito "web y mobile" del PRD con menor superficie de mantenimiento para un equipo unipersonal. |

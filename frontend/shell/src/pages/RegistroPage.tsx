@@ -10,6 +10,7 @@ import {
   crearAgencia,
   solicitarUnirse,
 } from '../services/agencias.api';
+import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
 
 export interface RegistroPageProps {
   rol: Rol;
@@ -141,10 +142,10 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
 
         {agenciaStep === 'eleccion' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <button type="button" onClick={() => setAgenciaStep('crear')}>
+            <button type="button" onClick={() => setAgenciaStep('crear')} style={secondaryButtonStyle}>
               Crear agencia nueva
             </button>
-            <button type="button" onClick={() => setAgenciaStep('buscar')}>
+            <button type="button" onClick={() => setAgenciaStep('buscar')} style={secondaryButtonStyle}>
               Unirme a una agencia existente
             </button>
           </div>
@@ -168,7 +169,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
                 onChange={(e) => setNit(e.target.value)}
               />
             </div>
-            <button type="submit" disabled={creandoAgencia}>
+            <button type="submit" disabled={creandoAgencia} style={primaryButtonStyle}>
               Crear agencia
             </button>
           </form>
@@ -184,7 +185,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
                 onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-            <button type="button" onClick={handleBuscarAgencias} disabled={buscando}>
+            <button type="button" onClick={handleBuscarAgencias} disabled={buscando} style={secondaryButtonStyle}>
               Buscar
             </button>
 
@@ -197,7 +198,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
                   {solicitudPendienteId === agencia.id ? (
                     <span>Solicitud pendiente</span>
                   ) : (
-                    <button type="button" onClick={() => handleSolicitarUnirse(agencia.id)}>
+                    <button type="button" onClick={() => handleSolicitarUnirse(agencia.id)} style={secondaryButtonStyle}>
                       Solicitar unirme
                     </button>
                   )}
@@ -253,7 +254,7 @@ const RegistroPage: React.FC<RegistroPageProps> = ({ rol }) => {
           </p>
         )}
 
-        <button type="submit" disabled={submitting}>
+        <button type="submit" disabled={submitting} style={primaryButtonStyle}>
           Registrarme
         </button>
       </form>

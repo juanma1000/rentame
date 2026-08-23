@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@rentame/auth';
 import { login, UsuariosApiError } from '../services/usuarios.api';
+import { primaryButtonStyle } from '../styles/buttons';
 
 /**
  * Inicio de sesión con email y contraseña (HU-008).
@@ -69,7 +70,7 @@ const LoginPage: React.FC = () => {
           </p>
         )}
 
-        <button type="submit" disabled={submitting}>
+        <button type="submit" disabled={submitting} style={primaryButtonStyle}>
           Iniciar sesión
         </button>
       </form>

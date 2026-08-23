@@ -52,6 +52,12 @@ class S3StorageAdapter:
         return storage_key
 
     def construir_url(self, storage_key: str) -> str:
-        """Build the resolvable `url_storage` for a given `storage_key`."""
-        endpoint = self._settings.storage_endpoint_url.rstrip("/")
+        """Build the resolvable `url_storage` for a given `storage_key`.
+
+        Uses `storage_public_url` (browser-reachable) when configured,
+        falling back to `storage_endpoint_url` — see `Settings.storage_public_url`.
+        """
+        endpoint = (self._settings.storage_public_url or self._settings.storage_endpoint_url).rstrip(
+            "/"
+        )
         return f"{endpoint}/{self._settings.storage_bucket_name}/{storage_key}"

@@ -226,7 +226,11 @@ async def seed() -> None:
             fotos = []
             for orden, rgb in enumerate(colores, start=1):
                 storage_key, url_storage = await _subir_foto_placeholder(
-                    s3_client, bucket, settings.storage_endpoint_url, inmueble_id, rgb
+                    s3_client,
+                    bucket,
+                    settings.storage_public_url or settings.storage_endpoint_url,
+                    inmueble_id,
+                    rgb,
                 )
                 fotos.append(
                     FotoInmueble(

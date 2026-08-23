@@ -139,3 +139,38 @@ class TestS3StorageAdapterConstruirUrl:
         # Assert
         assert isinstance(url, str)
         assert storage_key in url
+
+    def test_should_prefer_storage_public_url_over_storage_endpoint_url(self) -> None:
+        # Arrange: in Docker Compose, storage_endpoint_url is the
+        # backend-internal MinIO hostname (unreachable from a browser) while
+        # storage_public_url is the host-exposed one clients must use.
+        settings = Settings(
+            storage_endpoint_url="http://minio:9000",
+            storage_public_url="http://localhost:9000",
+            storage_bucket_name="inmuebles",
+        )
+        adapter = S3StorageAdapter(settings)
+        storage_key = f"inmuebles/{uuid.uuid4()}/1.jpg"
+
+        # Act
+        url = adapter.construir_url(storage_key)
+
+        # Assert
+        assert url.startswith("http://localhost:9000/")
+        assert "minio:9000" not in url
+
+    def test_should_fall_back_to_storage_endpoint_url_when_public_url_is_unset(self) -> None:
+        # Arrange
+        settings = Settings(
+            storage_endpoint_url="http://localhost:9000",
+            storage_public_url=None,
+            storage_bucket_name="inmuebles",
+        )
+        adapter = S3StorageAdapter(settings)
+        storage_key = f"inmuebles/{uuid.uuid4()}/1.jpg"
+
+        # Act
+        url = adapter.construir_url(storage_key)
+
+        # Assert
+        assert url.startswith("http://localhost:9000/")

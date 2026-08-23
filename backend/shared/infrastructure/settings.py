@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     jwt_expiration_minutes: int = 60
 
     storage_endpoint_url: str = "http://localhost:9000"
+    # URL used to build `url_storage` values returned to clients. Distinct
+    # from `storage_endpoint_url` because in Docker Compose the backend talks
+    # to MinIO over the internal network (`http://minio:9000`), a hostname
+    # browsers can never resolve — photo URLs must instead point at the
+    # host-exposed port. Defaults to `storage_endpoint_url` for setups where
+    # both are already reachable the same way (e.g. bare-metal dev).
+    storage_public_url: str | None = None
     storage_access_key: str = "rentame"
     storage_secret_key: str = "rentame12345"
     storage_bucket_name: str = "inmuebles"

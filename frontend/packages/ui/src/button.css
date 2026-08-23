@@ -1,0 +1,69 @@
+.rentame-button {
+  outline: none;
+}
+
+.rentame-button__spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: rentame-button-spin 0.6s linear infinite;
+}
+
+@keyframes rentame-button-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rentame-button--primary:hover:not(:disabled) {
+  background-color: var(--color-primary-2, #1e3a5f);
+  border-color: var(--color-primary-2, #1e3a5f);
+}
+
+.rentame-button--primary:active:not(:disabled) {
+  opacity: 0.9;
+}
+
+.rentame-button--secondary:hover:not(:disabled) {
+  background-color: var(--color-background);
+}
+
+.rentame-button--secondary:active:not(:disabled) {
+  opacity: 0.85;
+}
+
+.rentame-button--ghost:hover:not(:disabled) {
+  background-color: var(--color-background);
+}
+
+.rentame-button--ghost:active:not(:disabled) {
+  opacity: 0.85;
+}
+
+.rentame-button--danger:hover:not(:disabled) {
+  background-color: var(--color-error);
+  color: var(--color-surface);
+}
+
+.rentame-button--danger:active:not(:disabled) {
+  opacity: 0.9;
+}
+
+.rentame-button--premium:hover:not(:disabled) {
+  background-color: var(--color-accent);
+  color: var(--color-primary);
+}
+
+.rentame-button--premium:active:not(:disabled) {
+  opacity: 0.9;
+}
+
+.rentame-button:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent);
+}

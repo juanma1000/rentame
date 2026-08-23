@@ -294,3 +294,39 @@ describe('EditarInmueblePage — regresión para agentes de la misma agencia (Re
     expect(await screen.findByText(/actualizado/i)).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// ui-formulario-inmueble — Red phase (task 4.1)
+//
+// Covers `openspec/changes/ui-formulario-inmueble/specs/inmuebles-formulario-ui/spec.md`
+// scenario "Vista previa de moneda en el valor mensual", applied to
+// `EditarInmueblePage` with the same criterion already fixed for
+// `PublicarInmueblePage.test.tsx` (see design.md decision 3). This form has
+// no fotos input, so the missing-fields hint / success-icon scenarios do not
+// apply here — only the currency preview is exercised.
+//
+// Contract fixed here for `frontend-expert` (Green phase):
+//   - Any element near the "Valor mensual" input whose text content matches
+//     `/1[.,]800[.,]000/` once the field holds `'1800000'`. The input itself
+//     keeps its raw numeric value (`toHaveValue(1800000)`) — the preview is
+//     purely additional markup, it never replaces or reformats the input's
+//     own value.
+// ---------------------------------------------------------------------------
+describe('EditarInmueblePage — mejoras de UI (Red — ui-formulario-inmueble task 4.1)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mockEditarInmueble.mockReset();
+  });
+
+  describe('Vista previa de moneda del valor mensual', () => {
+    it('shows a formatted preview near the input while keeping its raw numeric value intact', () => {
+      renderPage();
+
+      const valorMensualInput = screen.getByLabelText(/valor mensual/i);
+      fireEvent.change(valorMensualInput, { target: { value: '1800000' } });
+
+      expect(screen.getByText(/1[.,]800[.,]000/)).toBeInTheDocument();
+      expect(valorMensualInput).toHaveValue(1800000);
+    });
+  });
+});

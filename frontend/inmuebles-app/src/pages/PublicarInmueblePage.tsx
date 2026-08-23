@@ -20,6 +20,17 @@ import type { PublicarInmuebleInput } from '../services/inmuebles.api';
 import { listarPropietariosVinculados } from '../services/agencias.api';
 import type { PropietarioVinculado } from '../services/agencias.api';
 import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
+import FotoDropzone from '../components/FotoDropzone';
+import {
+  cardStyle,
+  FIELD_CLASS_NAME,
+  gridRowStyle,
+  inputStyle,
+  sectionStyle,
+  sectionTitleStyle,
+  selectStyle,
+  textareaStyle,
+} from '../styles/forms';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -128,9 +139,7 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
     setFields((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFotosChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-
+  const handleFotosChange = (files: File[]) => {
     if (files.length > MAX_FOTOS) {
       setFotoError(`Solo se permiten máximo ${MAX_FOTOS} fotos. Seleccionaste ${files.length}.`);
       setFotos([]);
@@ -195,7 +204,12 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
   if (published) {
     return (
       <div style={containerStyle}>
-        <p>El inmueble fue publicado exitosamente.</p>
+        <div style={successStyle}>
+          <span data-testid="icono-exito" aria-hidden="true" style={successIconStyle}>
+            ✓
+          </span>
+          <p>El inmueble fue publicado exitosamente.</p>
+        </div>
         <button
           onClick={() => {
             setPublished(false);
@@ -218,6 +232,15 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
 
   const activeError = fotoError ?? submitError;
 
+  const valorMensualPreview =
+    fields.valorMensual !== ''
+      ? new Intl.NumberFormat('es-CO', {
+          style: 'currency',
+          currency: 'COP',
+          maximumFractionDigits: 0,
+        }).format(Number(fields.valorMensual))
+      : null;
+
   return (
     <div style={containerStyle}>
       {onVolver && (
@@ -226,163 +249,212 @@ const PublicarInmueblePage: React.FC<Props> = ({ onVolver, onPublicado }) => {
         </button>
       )}
       <h1>Publicar inmueble</h1>
-      <form onSubmit={handleSubmit} noValidate>
-        <div style={fieldStyle}>
-          <label htmlFor="pub-direccion">Dirección</label>
-          <input
-            id="pub-direccion"
-            name="direccion"
-            type="text"
-            value={fields.direccion}
-            onChange={handleFieldChange}
-          />
-        </div>
+      <div style={cardStyle}>
+        <form onSubmit={handleSubmit} noValidate>
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Ubicación</h2>
 
-        <div style={fieldStyle}>
-          <label htmlFor="pub-barrio">Barrio</label>
-          <input
-            id="pub-barrio"
-            name="barrio"
-            type="text"
-            value={fields.barrio}
-            onChange={handleFieldChange}
-          />
-        </div>
+            <div style={fieldStyle}>
+              <label htmlFor="pub-direccion">Dirección</label>
+              <input
+                id="pub-direccion"
+                name="direccion"
+                type="text"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.direccion}
+                onChange={handleFieldChange}
+              />
+            </div>
 
-        <div style={fieldStyle}>
-          <label htmlFor="pub-ciudad">Ciudad</label>
-          <input
-            id="pub-ciudad"
-            name="ciudad"
-            type="text"
-            value={fields.ciudad}
-            onChange={handleFieldChange}
-          />
-        </div>
+            <div style={fieldStyle}>
+              <label htmlFor="pub-barrio">Barrio</label>
+              <input
+                id="pub-barrio"
+                name="barrio"
+                type="text"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.barrio}
+                onChange={handleFieldChange}
+              />
+            </div>
 
-        <div style={fieldStyle}>
-          <label htmlFor="pub-tipo">Tipo de inmueble</label>
-          <select
-            id="pub-tipo"
-            name="tipo"
-            value={fields.tipo}
-            onChange={handleFieldChange}
+            <div style={fieldStyle}>
+              <label htmlFor="pub-ciudad">Ciudad</label>
+              <input
+                id="pub-ciudad"
+                name="ciudad"
+                type="text"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.ciudad}
+                onChange={handleFieldChange}
+              />
+            </div>
+          </section>
+
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Características</h2>
+
+            <div style={fieldStyle}>
+              <label htmlFor="pub-tipo">Tipo de inmueble</label>
+              <select
+                id="pub-tipo"
+                name="tipo"
+                className={FIELD_CLASS_NAME}
+                style={selectStyle}
+                value={fields.tipo}
+                onChange={handleFieldChange}
+              >
+                <option value="">Seleccione un tipo...</option>
+                <option value="apartamento">Apartamento</option>
+                <option value="casa">Casa</option>
+                <option value="local">Local comercial</option>
+                <option value="oficina">Oficina</option>
+                <option value="bodega">Bodega</option>
+              </select>
+            </div>
+
+            <div style={gridRowStyle}>
+              <div style={fieldStyle}>
+                <label htmlFor="pub-areaM2">Área en m²</label>
+                <input
+                  id="pub-areaM2"
+                  name="areaM2"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  className={FIELD_CLASS_NAME}
+                  style={inputStyle}
+                  value={fields.areaM2}
+                  onChange={handleFieldChange}
+                />
+              </div>
+
+              <div style={fieldStyle}>
+                <label htmlFor="pub-habitaciones">Habitaciones</label>
+                <input
+                  id="pub-habitaciones"
+                  name="habitaciones"
+                  type="number"
+                  min="0"
+                  className={FIELD_CLASS_NAME}
+                  style={inputStyle}
+                  value={fields.habitaciones}
+                  onChange={handleFieldChange}
+                />
+              </div>
+
+              <div style={fieldStyle}>
+                <label htmlFor="pub-banos">Baños</label>
+                <input
+                  id="pub-banos"
+                  name="banos"
+                  type="number"
+                  min="0"
+                  className={FIELD_CLASS_NAME}
+                  style={inputStyle}
+                  value={fields.banos}
+                  onChange={handleFieldChange}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Precio y descripción</h2>
+
+            <div style={fieldStyle}>
+              <label htmlFor="pub-valorMensual">Valor mensual</label>
+              <input
+                id="pub-valorMensual"
+                name="valorMensual"
+                type="number"
+                min="1"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.valorMensual}
+                onChange={handleFieldChange}
+              />
+              {valorMensualPreview !== null && (
+                <small style={currencyPreviewStyle}>{valorMensualPreview}</small>
+              )}
+            </div>
+
+            <div style={fieldStyle}>
+              <label htmlFor="pub-descripcion">Descripción</label>
+              <textarea
+                id="pub-descripcion"
+                name="descripcion"
+                rows={4}
+                className={FIELD_CLASS_NAME}
+                style={textareaStyle}
+                value={fields.descripcion}
+                onChange={handleFieldChange}
+              />
+            </div>
+          </section>
+
+          {role === 'agente' && (
+            <section style={sectionStyle}>
+              <h2 style={sectionTitleStyle}>Propietario</h2>
+              <div style={fieldStyle}>
+                <label htmlFor="pub-propietario">Propietario</label>
+                <select
+                  id="pub-propietario"
+                  className={FIELD_CLASS_NAME}
+                  style={selectStyle}
+                  value={propietarioId}
+                  onChange={(e) => setPropietarioId(e.target.value)}
+                >
+                  <option value="">Seleccione un propietario...</option>
+                  {propietarios
+                    .filter((p) => p.estado === 'activa')
+                    .map((p) => (
+                      <option key={p.id} value={p.propietarioId}>
+                        {p.propietarioEmail}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </section>
+          )}
+
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Fotos</h2>
+            <div style={fieldStyle}>
+              <label htmlFor="pub-fotos">Fotos</label>
+              <FotoDropzone
+                id="pub-fotos"
+                fotos={fotos}
+                maxFotos={MAX_FOTOS}
+                onFilesSelected={handleFotosChange}
+              />
+            </div>
+          </section>
+
+          {activeError !== null && (
+            <p role="alert" style={errorStyle}>
+              {activeError}
+            </p>
+          )}
+
+          {!isFormReady && (
+            <p style={hintStyle}>
+              Completa todos los campos y adjunta al menos 1 foto para publicar.
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={!isFormReady || isSubmitting}
+            style={primaryButtonStyle}
           >
-            <option value="">Seleccione un tipo...</option>
-            <option value="apartamento">Apartamento</option>
-            <option value="casa">Casa</option>
-            <option value="local">Local comercial</option>
-            <option value="oficina">Oficina</option>
-            <option value="bodega">Bodega</option>
-          </select>
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="pub-areaM2">Área en m²</label>
-          <input
-            id="pub-areaM2"
-            name="areaM2"
-            type="number"
-            min="1"
-            step="0.01"
-            value={fields.areaM2}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="pub-habitaciones">Habitaciones</label>
-          <input
-            id="pub-habitaciones"
-            name="habitaciones"
-            type="number"
-            min="0"
-            value={fields.habitaciones}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="pub-banos">Baños</label>
-          <input
-            id="pub-banos"
-            name="banos"
-            type="number"
-            min="0"
-            value={fields.banos}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="pub-valorMensual">Valor mensual</label>
-          <input
-            id="pub-valorMensual"
-            name="valorMensual"
-            type="number"
-            min="1"
-            value={fields.valorMensual}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="pub-descripcion">Descripción</label>
-          <textarea
-            id="pub-descripcion"
-            name="descripcion"
-            rows={4}
-            value={fields.descripcion}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        {role === 'agente' && (
-          <div style={fieldStyle}>
-            <label htmlFor="pub-propietario">Propietario</label>
-            <select
-              id="pub-propietario"
-              value={propietarioId}
-              onChange={(e) => setPropietarioId(e.target.value)}
-            >
-              <option value="">Seleccione un propietario...</option>
-              {propietarios
-                .filter((p) => p.estado === 'activa')
-                .map((p) => (
-                  <option key={p.id} value={p.propietarioId}>
-                    {p.propietarioEmail}
-                  </option>
-                ))}
-            </select>
-          </div>
-        )}
-
-        <div style={fieldStyle}>
-          <label htmlFor="pub-fotos">Fotos</label>
-          <input
-            id="pub-fotos"
-            name="fotos"
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleFotosChange}
-          />
-        </div>
-
-        {activeError !== null && (
-          <p role="alert" style={errorStyle}>
-            {activeError}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={!isFormReady || isSubmitting}
-          style={primaryButtonStyle}
-        >
-          {isSubmitting ? 'Publicando...' : 'Publicar'}
-        </button>
-      </form>
+            {isSubmitting ? 'Publicando...' : 'Publicar'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
@@ -408,6 +480,38 @@ const fieldStyle: React.CSSProperties = {
 const errorStyle: React.CSSProperties = {
   color: 'var(--color-error)',
   marginBottom: '0.75rem',
+};
+
+const hintStyle: React.CSSProperties = {
+  color: 'var(--color-text-secondary)',
+  fontSize: '0.9rem',
+  marginBottom: '0.75rem',
+};
+
+const currencyPreviewStyle: React.CSSProperties = {
+  color: 'var(--color-text-secondary)',
+  fontSize: '0.85rem',
+};
+
+const successStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+  marginBottom: '1rem',
+};
+
+const successIconStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '2.5rem',
+  height: '2.5rem',
+  borderRadius: '50%',
+  backgroundColor: 'var(--color-success)',
+  color: 'var(--color-surface)',
+  fontSize: '1.25rem',
+  fontWeight: 700,
+  flexShrink: 0,
 };
 
 export default PublicarInmueblePage;

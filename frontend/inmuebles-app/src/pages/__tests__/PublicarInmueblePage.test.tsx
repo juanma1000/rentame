@@ -441,3 +441,94 @@ describe('PublicarInmueblePage — selector de propietario para agentes (Red —
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// ui-formulario-inmueble — Red phase
+//
+// Covers `openspec/changes/ui-formulario-inmueble/specs/inmuebles-formulario-ui/spec.md`:
+//   - "Indicación de campos faltantes cuando el botón está deshabilitado"
+//   - "Vista previa de moneda en el valor mensual"
+// and design.md decision 6 (success screen icon).
+//
+// Contract fixed here for `frontend-expert` (Green phase):
+//   - Missing-fields hint: a plain text element (no `role="alert"`, which
+//     stays reserved for the two photo-validation errors) matching
+//     `/completa todos los campos/i`, visible whenever `!isFormReady`, and
+//     gone once every text field is filled and at least 1 foto is attached.
+//     Exact copy chosen: "Completa todos los campos y adjunta al menos 1
+//     foto para publicar." (see design.md decision 4).
+//   - Currency preview: any element near the "Valor mensual" input whose
+//     text content matches `/1[.,]500[.,]000/` once the field holds
+//     `'1500000'`. The input itself keeps its raw numeric value
+//     (`toHaveValue(1500000)`) — the preview is purely additional markup,
+//     it never replaces or reformats the input's own value.
+//   - Success screen icon: an additional element with
+//     `data-testid="icono-exito"` rendered alongside the existing
+//     "publicado" confirmation text (design.md decision 6 — a "✓" glyph,
+//     exact rendering left to `frontend-expert`, only the testid is fixed
+//     by this contract).
+// ---------------------------------------------------------------------------
+describe('PublicarInmueblePage — mejoras de UI (Red — ui-formulario-inmueble)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mockPublicarInmueble.mockReset();
+  });
+
+  describe('Hint de campos faltantes', () => {
+    it('is shown, without role="alert", when the form is freshly mounted and empty', () => {
+      renderPage();
+
+      expect(screen.getByText(/completa todos los campos/i)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('disappears once every text field is filled and 1 foto is attached', () => {
+      renderPage();
+
+      fillRequiredTextFields();
+      attachFotos(makeFiles(1));
+
+      expect(screen.queryByText(/completa todos los campos/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Vista previa de moneda del valor mensual', () => {
+    it('shows a formatted preview near the input while keeping its raw numeric value intact', () => {
+      renderPage();
+
+      const valorMensualInput = screen.getByLabelText(/valor mensual/i);
+      fireEvent.change(valorMensualInput, { target: { value: '1500000' } });
+
+      expect(screen.getByText(/1[.,]500[.,]000/)).toBeInTheDocument();
+      expect(valorMensualInput).toHaveValue(1500000);
+    });
+  });
+
+  describe('Pantalla de éxito con ícono', () => {
+    it('renders a success icon alongside the "publicado" confirmation message', async () => {
+      mockPublicarInmueble.mockResolvedValueOnce({
+        id: 'inmueble-uuid-1',
+        propietarioId: 'propietario-uuid-1',
+        direccion: 'Calle 10 # 20-30',
+        barrio: 'Laureles',
+        ciudad: 'Medellín',
+        tipo: 'apartamento',
+        areaM2: 65,
+        habitaciones: 2,
+        banos: 1,
+        valorMensual: 1_500_000,
+        descripcion: 'Apartamento luminoso cerca al parque.',
+        estado: 'disponible',
+        fotos: [],
+      });
+
+      renderPage();
+      fillRequiredTextFields();
+      attachFotos(makeFiles(1));
+      fireEvent.click(submitButton());
+
+      expect(await screen.findByText(/publicado/i)).toBeInTheDocument();
+      expect(screen.getByTestId('icono-exito')).toBeInTheDocument();
+    });
+  });
+});

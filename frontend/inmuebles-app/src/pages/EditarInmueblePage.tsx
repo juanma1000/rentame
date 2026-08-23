@@ -13,12 +13,29 @@
  *    text fields are filled.
  *  - On success, shows a confirmation message containing "actualizado".
  *  - The JWT token is read from @rentame/auth's useAuth() (session.token).
+ *
+ * Visual pattern: mirrors `PublicarInmueblePage.tsx` (task 4.2 of
+ * `ui-formulario-inmueble`) — same `cardStyle`, sections ("Ubicación",
+ * "Características", "Precio y descripción"), `styles/forms.ts` tokens and
+ * currency preview. This form has no Fotos/Propietario sections. The success
+ * icon is added purely for visual consistency with Publicar — no test
+ * requires it here.
  */
 import React, { ChangeEvent, FormEvent, useState } from 'react';
 import { useAuth } from '@rentame/auth';
 import { editarInmueble, InmueblesApiError } from '../services/inmuebles.api';
 import type { EditarInmuebleInput, Inmueble } from '../services/inmuebles.api';
 import { primaryButtonStyle, secondaryButtonStyle } from '../styles/buttons';
+import {
+  cardStyle,
+  FIELD_CLASS_NAME,
+  gridRowStyle,
+  inputStyle,
+  sectionStyle,
+  sectionTitleStyle,
+  selectStyle,
+  textareaStyle,
+} from '../styles/forms';
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -147,7 +164,12 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
   if (updated) {
     return (
       <div style={containerStyle}>
-        <p>El inmueble fue actualizado exitosamente.</p>
+        <div style={successStyle}>
+          <span data-testid="icono-exito" aria-hidden="true" style={successIconStyle}>
+            ✓
+          </span>
+          <p>El inmueble fue actualizado exitosamente.</p>
+        </div>
       </div>
     );
   }
@@ -155,6 +177,15 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
   // -------------------------------------------------------------------------
   // Form
   // -------------------------------------------------------------------------
+
+  const valorMensualPreview =
+    fields.valorMensual !== ''
+      ? new Intl.NumberFormat('es-CO', {
+          style: 'currency',
+          currency: 'COP',
+          maximumFractionDigits: 0,
+        }).format(Number(fields.valorMensual))
+      : null;
 
   return (
     <div style={containerStyle}>
@@ -164,131 +195,168 @@ const EditarInmueblePage: React.FC<Props> = ({ inmueble, onVolver, onActualizado
         </button>
       )}
       <h1>Editar inmueble</h1>
-      <form onSubmit={handleSubmit} noValidate>
-        <div style={fieldStyle}>
-          <label htmlFor="edit-direccion">Dirección</label>
-          <input
-            id="edit-direccion"
-            name="direccion"
-            type="text"
-            value={fields.direccion}
-            onChange={handleFieldChange}
-          />
-        </div>
+      <div style={cardStyle}>
+        <form onSubmit={handleSubmit} noValidate>
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Ubicación</h2>
 
-        <div style={fieldStyle}>
-          <label htmlFor="edit-barrio">Barrio</label>
-          <input
-            id="edit-barrio"
-            name="barrio"
-            type="text"
-            value={fields.barrio}
-            onChange={handleFieldChange}
-          />
-        </div>
+            <div style={fieldStyle}>
+              <label htmlFor="edit-direccion">Dirección</label>
+              <input
+                id="edit-direccion"
+                name="direccion"
+                type="text"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.direccion}
+                onChange={handleFieldChange}
+              />
+            </div>
 
-        <div style={fieldStyle}>
-          <label htmlFor="edit-ciudad">Ciudad</label>
-          <input
-            id="edit-ciudad"
-            name="ciudad"
-            type="text"
-            value={fields.ciudad}
-            onChange={handleFieldChange}
-          />
-        </div>
+            <div style={fieldStyle}>
+              <label htmlFor="edit-barrio">Barrio</label>
+              <input
+                id="edit-barrio"
+                name="barrio"
+                type="text"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.barrio}
+                onChange={handleFieldChange}
+              />
+            </div>
 
-        <div style={fieldStyle}>
-          <label htmlFor="edit-tipo">Tipo de inmueble</label>
-          <select
-            id="edit-tipo"
-            name="tipo"
-            value={fields.tipo}
-            onChange={handleFieldChange}
+            <div style={fieldStyle}>
+              <label htmlFor="edit-ciudad">Ciudad</label>
+              <input
+                id="edit-ciudad"
+                name="ciudad"
+                type="text"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.ciudad}
+                onChange={handleFieldChange}
+              />
+            </div>
+          </section>
+
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Características</h2>
+
+            <div style={fieldStyle}>
+              <label htmlFor="edit-tipo">Tipo de inmueble</label>
+              <select
+                id="edit-tipo"
+                name="tipo"
+                className={FIELD_CLASS_NAME}
+                style={selectStyle}
+                value={fields.tipo}
+                onChange={handleFieldChange}
+              >
+                <option value="">Seleccione un tipo...</option>
+                <option value="apartamento">Apartamento</option>
+                <option value="casa">Casa</option>
+                <option value="local">Local comercial</option>
+                <option value="oficina">Oficina</option>
+                <option value="bodega">Bodega</option>
+              </select>
+            </div>
+
+            <div style={gridRowStyle}>
+              <div style={fieldStyle}>
+                <label htmlFor="edit-areaM2">Área en m²</label>
+                <input
+                  id="edit-areaM2"
+                  name="areaM2"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  className={FIELD_CLASS_NAME}
+                  style={inputStyle}
+                  value={fields.areaM2}
+                  onChange={handleFieldChange}
+                />
+              </div>
+
+              <div style={fieldStyle}>
+                <label htmlFor="edit-habitaciones">Habitaciones</label>
+                <input
+                  id="edit-habitaciones"
+                  name="habitaciones"
+                  type="number"
+                  min="0"
+                  className={FIELD_CLASS_NAME}
+                  style={inputStyle}
+                  value={fields.habitaciones}
+                  onChange={handleFieldChange}
+                />
+              </div>
+
+              <div style={fieldStyle}>
+                <label htmlFor="edit-banos">Baños</label>
+                <input
+                  id="edit-banos"
+                  name="banos"
+                  type="number"
+                  min="0"
+                  className={FIELD_CLASS_NAME}
+                  style={inputStyle}
+                  value={fields.banos}
+                  onChange={handleFieldChange}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Precio y descripción</h2>
+
+            <div style={fieldStyle}>
+              <label htmlFor="edit-valorMensual">Valor mensual</label>
+              <input
+                id="edit-valorMensual"
+                name="valorMensual"
+                type="number"
+                min="1"
+                className={FIELD_CLASS_NAME}
+                style={inputStyle}
+                value={fields.valorMensual}
+                onChange={handleFieldChange}
+              />
+              {valorMensualPreview !== null && (
+                <small style={currencyPreviewStyle}>{valorMensualPreview}</small>
+              )}
+            </div>
+
+            <div style={fieldStyle}>
+              <label htmlFor="edit-descripcion">Descripción</label>
+              <textarea
+                id="edit-descripcion"
+                name="descripcion"
+                rows={4}
+                className={FIELD_CLASS_NAME}
+                style={textareaStyle}
+                value={fields.descripcion}
+                onChange={handleFieldChange}
+              />
+            </div>
+          </section>
+
+          {submitError !== null && (
+            <p role="alert" style={errorStyle}>
+              {submitError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={!isFormReady || isSubmitting}
+            style={primaryButtonStyle}
           >
-            <option value="">Seleccione un tipo...</option>
-            <option value="apartamento">Apartamento</option>
-            <option value="casa">Casa</option>
-            <option value="local">Local comercial</option>
-            <option value="oficina">Oficina</option>
-            <option value="bodega">Bodega</option>
-          </select>
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="edit-areaM2">Área en m²</label>
-          <input
-            id="edit-areaM2"
-            name="areaM2"
-            type="number"
-            min="1"
-            step="0.01"
-            value={fields.areaM2}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="edit-habitaciones">Habitaciones</label>
-          <input
-            id="edit-habitaciones"
-            name="habitaciones"
-            type="number"
-            min="0"
-            value={fields.habitaciones}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="edit-banos">Baños</label>
-          <input
-            id="edit-banos"
-            name="banos"
-            type="number"
-            min="0"
-            value={fields.banos}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="edit-valorMensual">Valor mensual</label>
-          <input
-            id="edit-valorMensual"
-            name="valorMensual"
-            type="number"
-            min="1"
-            value={fields.valorMensual}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label htmlFor="edit-descripcion">Descripción</label>
-          <textarea
-            id="edit-descripcion"
-            name="descripcion"
-            rows={4}
-            value={fields.descripcion}
-            onChange={handleFieldChange}
-          />
-        </div>
-
-        {submitError !== null && (
-          <p role="alert" style={errorStyle}>
-            {submitError}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={!isFormReady || isSubmitting}
-          style={primaryButtonStyle}
-        >
-          {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
-        </button>
-      </form>
+            {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
@@ -314,6 +382,32 @@ const fieldStyle: React.CSSProperties = {
 const errorStyle: React.CSSProperties = {
   color: 'var(--color-error)',
   marginBottom: '0.75rem',
+};
+
+const currencyPreviewStyle: React.CSSProperties = {
+  color: 'var(--color-text-secondary)',
+  fontSize: '0.85rem',
+};
+
+const successStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+  marginBottom: '1rem',
+};
+
+const successIconStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '2.5rem',
+  height: '2.5rem',
+  borderRadius: '50%',
+  backgroundColor: 'var(--color-success)',
+  color: 'var(--color-surface)',
+  fontSize: '1.25rem',
+  fontWeight: 700,
+  flexShrink: 0,
 };
 
 export default EditarInmueblePage;

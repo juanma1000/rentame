@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     truora_api_key: str | None = None
     truora_base_url: str = "https://api.truora.com"
 
+    # `seguro-arrendamiento` domain
+    # (`openspec/changes/seguro-arrendamiento-inquilino`): selects the
+    # `ProveedorSeguroArrendamientoPort` adapter
+    # (`seguro_arrendamiento/infrastructure/proveedor.py`). `"fake"`
+    # (default) is safe in every environment until Sura credentials are
+    # configured, per design.md's Migration Plan step 2; only `"sura"`
+    # requires `sura_api_key` to be set.
+    seguro_arrendamiento_proveedor: str = "fake"
+    sura_api_key: str | None = None
+    sura_base_url: str = "https://api.sura.com"
+
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
 

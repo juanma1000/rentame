@@ -28,6 +28,8 @@ from identidad.domain.exceptions import IdentidadYaVerificada, ValidacionNoDispo
 from identidad.infrastructure.api.router import router as identidad_router
 from inmuebles.domain.exceptions import InmuebleNoEncontrado, PropietarioInvalido
 from inmuebles.infrastructure.api.router import router as inmuebles_router
+from seguro_arrendamiento.domain.exceptions import ContratacionNoDisponible, IdentidadNoVerificada
+from seguro_arrendamiento.infrastructure.api.router import router as seguro_arrendamiento_router
 from shared.domain.exceptions import DomainValidationError
 from shared.infrastructure.settings import get_settings
 from usuarios.domain.exceptions import CredencialesInvalidas, EmailYaRegistrado
@@ -62,6 +64,7 @@ app.include_router(inmuebles_router)
 app.include_router(agencias_router)
 app.include_router(usuarios_router)
 app.include_router(identidad_router)
+app.include_router(seguro_arrendamiento_router)
 
 
 @app.exception_handler(DomainValidationError)
@@ -151,6 +154,23 @@ async def validacion_no_disponible_handler(
     """The proveedor externo (Truora) could not be reached — a clear,
     non-500 response per design.md's risk mitigation, so the inquilino sees
     an explicit "reintentar" state instead of a generic server error."""
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
+@app.exception_handler(IdentidadNoVerificada)
+async def identidad_no_verificada_handler(
+    request: Request, exc: IdentidadNoVerificada
+) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(ContratacionNoDisponible)
+async def contratacion_no_disponible_handler(
+    request: Request, exc: ContratacionNoDisponible
+) -> JSONResponse:
+    """The proveedor externo (Sura) could not be reached — a clear, non-500
+    response per design.md's risk mitigation, so the inquilino sees an
+    explicit "reintentar" state instead of a generic server error."""
     return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 

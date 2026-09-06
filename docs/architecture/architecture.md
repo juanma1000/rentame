@@ -160,6 +160,17 @@ erDiagram
         timestamp creado_en
     }
 
+    POLIZA_ARRENDAMIENTO {
+        uuid id PK
+        uuid usuario_id FK
+        string estado "pendiente | aprobada | rechazada | activa | vencida"
+        numeric prima_mensual "pagada por el propietario, retenida del pago mensual (HU-006)"
+        date vigencia_desde
+        date vigencia_hasta
+        string referencia_externa "id de tracking del proveedor (Sura)"
+        timestamp creado_en
+    }
+
     INMUEBLE {
         uuid id PK
         uuid propietario_id FK
@@ -778,20 +789,39 @@ backend/
 │       └── external/
 │           └── firma_electronica_adapter.py # ElectronicSignaturePort → HTTP proveedor firma
 │
-├── riesgo/
+├── seguro_arrendamiento/              # implementado (change seguro-arrendamiento-inquilino, HU-005)
 │   ├── domain/
-│   │   ├── analisis_riesgo.py       # Entidad AnalisisRiesgo, TipoAnalisis enum, EstadoAnalisis enum
-│   │   ├── ports.py                 # RiesgoRepositoryPort, RiskAssessmentPort
-│   │   └── exceptions.py            # AnalisisYaExiste, ProveedorRiesgoError
+│   │   ├── poliza_arrendamiento.py   # Entidad PolizaArrendamiento, EstadoPoliza (pendiente/aprobada/
+│   │   │                            # rechazada/activa/vencida); invariante "rechazada no puede activarse"
+│   │   ├── ports.py                 # ProveedorSeguroArrendamientoPort (.contratar(cedula, documentos)
+│   │   │                            # -> ResultadoPoliza), PolizaArrendamientoRepositoryPort,
+│   │   │                            # UsuarioIdentidadPort (lectura de usuario.identidad_verificada,
+│   │   │                            # sin acoplarse a la infraestructura de usuarios)
+│   │   └── exceptions.py            # IdentidadNoVerificada (403), ContratacionNoDisponible (503),
+│   │                                # PolizaRechazadaNoPuedeActivarse
 │   ├── application/
-│   │   └── analizar_riesgo.py       # UC: llama RiskAssessmentPort, persiste resultado
+│   │   └── contratar_seguro_arrendamiento.py # UC: rechaza sin llamar al proveedor si identidad no
+│   │                                # verificada; si no, llama proveedor, persiste PolizaArrendamiento
 │   └── infrastructure/
-│       ├── persistence/
-│       │   ├── models.py            # AnalisisRiesgoORM
-│       │   └── repository.py        # RiesgoRepositoryPostgres
-│       └── external/
-│           ├── credito_adapter.py   # RiskAssessmentPort → API de estudio de crédito
-│           └── seguro_adapter.py    # RiskAssessmentPort → API de seguro de arrendamiento
+│       ├── adapters/
+│       │   ├── fake_adapter.py      # ProveedorSeguroArrendamientoPort — siempre aprueba, prima_mensual
+│       │   │                        # y referencia_externa determinísticas (dev/test, default)
+│       │   └── sura_adapter.py      # ProveedorSeguroArrendamientoPort — HTTP real a Sura/ArriendeSeguro;
+│       │                            # contrato exacto es open question (sin API pública documentada);
+│       │                            # mapea timeout/error a ContratacionNoDisponible en vez de 500
+│       ├── proveedor.py             # Factory: elige Fake/Sura por variable de ambiente
+│       ├── api/
+│       │   ├── router.py            # POST /seguro-arrendamiento/contratar (multipart documentos de
+│       │   │                        # soporte; requiere inquilino autenticado con identidad_verificada;
+│       │   │                        # documentos nunca se escriben a disco/BD, solo se reenvían y descartan)
+│       │   └── schemas.py           # ContratarSeguroResponse
+│       └── persistence/
+│           ├── models.py            # PolizaArrendamientoORM
+│           └── repository.py        # PolizaArrendamientoRepositoryPostgres, UsuarioIdentidadRepositoryPostgres
+│
+│   # Fuera de alcance de este dominio (ver notas técnicas de HU-005):
+│   #  - firma electrónica del contrato → HU propia futura, no construida aún
+│   #  - split/retención de la prima sobre el pago mensual → responsabilidad de `pagos/` (HU-006)
 │
 └── pagos/
     ├── domain/

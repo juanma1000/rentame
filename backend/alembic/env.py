@@ -14,10 +14,18 @@ from agencias.infrastructure.persistence.models import (  # noqa: F401
     SolicitudIngresoAgenciaORM,
 )
 from alembic import context
+from firma_contrato.infrastructure.persistence.models import (  # noqa: F401
+    ArrendamientoActivoORM,
+    ContratoORM,
+)
 from identidad.infrastructure.persistence.models import ValidacionIdentidadORM  # noqa: F401
 from inmuebles.infrastructure.persistence.models import (  # noqa: F401
     FotoInmuebleORM,
     InmuebleORM,
+)
+from pagos.infrastructure.persistence.models import PagoORM  # noqa: F401
+from seguro_arrendamiento.infrastructure.persistence.models import (  # noqa: F401
+    PolizaArrendamientoORM,
 )
 from shared.infrastructure.database import Base
 from shared.infrastructure.settings import get_settings

@@ -220,83 +220,15 @@ erDiagram
         timestamp creado_en
     }
 
-    VALIDACION_IDENTIDAD {
-        uuid id PK
-        uuid usuario_id FK, UK
-        string numero_cedula
-        string estado "pendiente | aprobado | rechazado"
-        string proveedor_respuesta "JSON del proveedor"
-        string doc_frente_key "storage key"
-        string doc_dorso_key "storage key"
-        timestamp creado_en
-        timestamp resuelto_en
-    }
-
-    SOLICITUD_ARRENDAMIENTO {
-        uuid id PK
-        uuid inquilino_id FK
-        uuid inmueble_id FK
-        string estado "borrador | enviada | en_revision | aprobada | rechazada | cancelada"
-        timestamp creado_en
-        timestamp actualizado_en
-    }
-
-    DOCUMENTO_SOLICITUD {
-        uuid id PK
-        uuid solicitud_id FK
-        string tipo "desprendible | certificado_laboral | otro"
-        string storage_key
-        string nombre_archivo
-        timestamp subido_en
-    }
-
-    ANALISIS_RIESGO {
-        uuid id PK
-        uuid solicitud_id FK, UK
-        string tipo "credito | seguro"
-        string estado "pendiente | aprobado | rechazado"
-        string proveedor_respuesta "JSON del proveedor"
-        timestamp creado_en
-        timestamp resuelto_en
-    }
-
-    CONTRATO {
-        uuid id PK
-        uuid solicitud_id FK, UK
-        string estado "borrador | pendiente_firma_inquilino | pendiente_firma_propietario | firmado | cancelado"
-        string storage_key "contrato firmado PDF"
-        string ref_proveedor_firma "ID externo del proveedor"
-        decimal valor_mensual_acordado
-        date fecha_inicio
-        date fecha_fin
-        timestamp creado_en
-        timestamp firmado_en
-    }
-
-    ARRENDAMIENTO_ACTIVO {
-        uuid id PK
-        uuid contrato_id FK, UK
-        uuid inquilino_id FK
-        uuid inmueble_id FK
-        date fecha_inicio
-        date fecha_fin
-        int dia_cobro "día del mes para cobro"
-        boolean activo
-        timestamp creado_en
-    }
-
     PAGO {
         uuid id PK
-        uuid arrendamiento_id FK
-        decimal monto
-        date periodo_mes "primer día del mes que cubre"
+        uuid arrendamiento_activo_id FK
+        string estado "pendiente | completado | fallido"
+        numeric monto "= Inmueble.valor_mensual del arrendamiento"
         date fecha_limite
-        string estado "pendiente | procesando | completado | fallido | reembolsado"
-        string metodo "pse | tarjeta"
-        string ref_transaccion_pasarela UK
-        string comprobante_storage_key "nullable"
+        date fecha_pago "nullable — solo si estado=completado"
+        string referencia_externa "id de tracking del proveedor (Wompi)"
         timestamp creado_en
-        timestamp pagado_en
     }
 
     AGENCIA ||--o{ USUARIO : "empleador de (rol=agente)"
@@ -307,25 +239,22 @@ erDiagram
     USUARIO ||--o{ RELACION_AGENCIA_PROPIETARIO : "agente responsable de"
     USUARIO ||--o{ INMUEBLE : "propietario de"
     USUARIO ||--o{ INMUEBLE : "agente de"
-    USUARIO ||--|| VALIDACION_IDENTIDAD : "tiene"
-    USUARIO ||--o{ SOLICITUD_ARRENDAMIENTO : "inquilino en"
+    USUARIO ||--o{ VALIDACION_IDENTIDAD : "intenta (una sola aprobada)"
+    USUARIO ||--o{ POLIZA_ARRENDAMIENTO : "contrata (inquilino)"
+    USUARIO ||--o{ CONTRATO : "firma (inquilino)"
 
     INMUEBLE ||--o{ FOTO_INMUEBLE : "tiene"
-    INMUEBLE ||--o{ SOLICITUD_ARRENDAMIENTO : "objeto de"
+    INMUEBLE ||--o{ CONTRATO : "objeto de"
     INMUEBLE ||--o{ ARRENDAMIENTO_ACTIVO : "arrendado como"
 
-    SOLICITUD_ARRENDAMIENTO ||--o{ DOCUMENTO_SOLICITUD : "adjunta"
-    SOLICITUD_ARRENDAMIENTO ||--o| ANALISIS_RIESGO : "tiene"
-    SOLICITUD_ARRENDAMIENTO ||--o| CONTRATO : "genera"
-
-    CONTRATO ||--o| ARRENDAMIENTO_ACTIVO : "activa"
-
-    ARRENDAMIENTO_ACTIVO ||--o{ PAGO : "genera"
+    POLIZA_ARRENDAMIENTO ||--o| CONTRATO : "habilita"
+    CONTRATO ||--o| ARRENDAMIENTO_ACTIVO : "activa (solo si firmado)"
+    ARRENDAMIENTO_ACTIVO ||--o{ PAGO : "genera (uno por ciclo)"
 ```
 
 **Descripción del modelo de datos:**
 
-El modelo central es `SOLICITUD_ARRENDAMIENTO`, que une al inquilino con el inmueble y progresa a través de estados hasta generar un `CONTRATO` y eventualmente un `ARRENDAMIENTO_ACTIVO`. La `VALIDACION_IDENTIDAD` es prerequisito del inquilino y se almacena por separado del proceso de solicitud. Los `PAGO`s son generados por el arrendamiento activo mes a mes.
+Cadena implementada de HU-004 a HU-006: un `USUARIO` (inquilino) obtiene una `VALIDACION_IDENTIDAD` aprobada (HU-004), lo que habilita contratar una `POLIZA_ARRENDAMIENTO` (HU-005), lo que habilita generar y firmar un `CONTRATO` (HU-009) sobre un `INMUEBLE` — un `CONTRATO` firmado crea un `ARRENDAMIENTO_ACTIVO`, que genera un `PAGO` pendiente por cada ciclo mensual (HU-006). Cada aggregate consulta únicamente el inmediato anterior en la cadena (vía un puerto de solo lectura propio, sin acoplarse a la infraestructura del otro dominio) — no salta capas.
 
 ---
 
@@ -866,26 +795,49 @@ backend/
 │   #  - firma electrónica del contrato → HU propia futura, no construida aún
 │   #  - split/retención de la prima sobre el pago mensual → responsabilidad de `pagos/` (HU-006)
 │
-└── pagos/
+└── pagos/                              # implementado (change pago-mensual-renta, HU-006)
     ├── domain/
-    │   ├── pago.py                  # Entidad Pago, EstadoPago enum, MetodoPago enum
-    │   ├── ports.py                 # PagoRepositoryPort, PaymentGatewayPort
-    │   └── exceptions.py            # PagoNoEncontrado, ArrendamientoNoActivo, PagoYaCompletado
+    │   ├── pago.py                     # Entidad Pago, EstadoPago (pendiente/completado/fallido);
+    │   │                               # solo completado es terminal — fallido admite reintento
+    │   │                               # manual sobre el mismo Pago (no genera uno nuevo)
+    │   ├── ports.py                    # PasarelaPagosPort (.iniciar_cobro(monto, split) ->
+    │   │                               # ResultadoCobro), PagoRepositoryPort, ArrendamientoActivoPort,
+    │   │                               # PolizaArrendamientoPort (lectura de prima_mensual),
+    │   │                               # InmueblePort (lectura de propietario_id y valor_mensual —
+    │   │                               # fuente del monto del canon, ArrendamientoActivo no lo carga)
+    │   └── exceptions.py               # (ver módulo — nombres específicos de este dominio)
     ├── application/
-    │   ├── iniciar_pago.py          # UC: valida arrendamiento activo, crea sesión en pasarela
-    │   ├── confirmar_pago.py        # UC: procesa webhook exitoso → marca completado + comprobante
-    │   ├── registrar_fallo.py       # UC: procesa webhook fallido → notifica inquilino
-    │   └── obtener_historial.py     # UC: devuelve historial de pagos del arrendamiento
+    │   ├── generar_pagos_del_ciclo.py  # UC (invocado por el job mensual): un Pago pendiente por
+    │   │                               # ArrendamientoActivo activo; idempotente — no duplica si ya
+    │   │                               # existe uno sin resolver para el ciclo actual
+    │   ├── iniciar_pago.py             # UC: arma el split (prima a retener + neto al propietario) y
+    │   │                               # llama al proveedor; rechaza si el pago ya está completado
+    │   └── procesar_resultado_pago.py  # UC (invocado por el webhook): completado -> marca fecha de
+    │                                   # pago; fallido -> marca el Pago sin más efectos
     └── infrastructure/
+        ├── adapters/
+        │   ├── fake_adapter.py         # PasarelaPagosPort — siempre completa (dev/test, default)
+        │   └── wompi_adapter.py        # PasarelaPagosPort — HTTP real a Wompi (Pagos a Terceros);
+        │                               # contrato exacto es open question; mapea timeout/error sin 500
+        ├── proveedor.py                # Factory: elige Fake/Wompi por variable de ambiente
+        ├── jobs/                       # (paquete del job — ver también backend/scripts/ abajo)
         ├── api/
-        │   ├── router.py            # POST /pagos/iniciar, POST /pagos/webhook,
-        │   │                        # GET /arrendamientos/activo/pagos
-        │   └── schemas.py           # IniciarPagoRequest, WebhookPagoEvent, PagoResponse
-        ├── persistence/
-        │   ├── models.py            # PagoORM
-        │   └── repository.py        # PagoRepositoryPostgres
-        └── external/
-            └── pasarela_pagos_adapter.py # PaymentGatewayPort → HTTP pasarela colombiana
+        │   ├── router.py               # POST /pagos/{id}/iniciar, POST /pagos/webhook,
+        │   │                           # GET /arrendamientos/{id}/pagos (historial completo)
+        │   └── schemas.py
+        └── persistence/
+            ├── models.py               # PagoORM
+            ├── repository.py           # PagoRepositoryPostgres
+            ├── arrendamiento_activo_repository.py # lee ArrendamientoActivo (firma_contrato) sin
+            │                                       # acoplarse a su infraestructura
+            ├── poliza_arrendamiento_repository.py  # lee PolizaArrendamiento.prima_mensual
+            └── inmueble_repository.py              # lee Inmueble.propietario_id/valor_mensual
+
+# backend/scripts/generar_pagos_mensuales.py — entrypoint del job mensual (mismo patrón que el
+# entrypoint de migraciones); invocado por una tarea ECS/Fargate one-off separada
+# (infra/aws/pagos-mensuales-task/), no por un scheduler embebido en el proceso de la app —
+# el backend corre en réplicas autoescaladas (App Runner) y un scheduler in-process duplicaría
+# pagos por cada réplica, mismo problema que ya se resolvió para las migraciones de Alembic.
 ```
 
 ---

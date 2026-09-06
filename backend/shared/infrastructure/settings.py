@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     viafirma_api_key: str | None = None
     viafirma_base_url: str = "https://api.viafirma.com.co"
 
+    # `pagos` domain (`openspec/changes/pago-mensual-renta`): selects the
+    # `PasarelaPagosPort` adapter (`pagos/infrastructure/proveedor.py`).
+    # `"fake"` (default) is safe in every environment until Wompi
+    # credentials are configured, per design.md's Migration Plan step 3;
+    # only `"wompi"` requires `wompi_api_key` to be set.
+    pagos_proveedor: str = "fake"
+    wompi_api_key: str | None = None
+    wompi_base_url: str = "https://production.wompi.co/v1"
+
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
 

@@ -37,6 +37,13 @@ from identidad.domain.exceptions import IdentidadYaVerificada, ValidacionNoDispo
 from identidad.infrastructure.api.router import router as identidad_router
 from inmuebles.domain.exceptions import InmuebleNoEncontrado, PropietarioInvalido
 from inmuebles.infrastructure.api.router import router as inmuebles_router
+from pagos.domain.exceptions import (
+    ArrendamientoActivoNoEncontrado,
+    CobroPagoNoDisponible,
+    PagoNoEncontrado,
+    PagoYaCompletado,
+)
+from pagos.infrastructure.api.router import router as pagos_router
 from seguro_arrendamiento.domain.exceptions import ContratacionNoDisponible, IdentidadNoVerificada
 from seguro_arrendamiento.infrastructure.api.router import router as seguro_arrendamiento_router
 from shared.domain.exceptions import DomainValidationError
@@ -75,6 +82,7 @@ app.include_router(usuarios_router)
 app.include_router(identidad_router)
 app.include_router(seguro_arrendamiento_router)
 app.include_router(firma_contrato_router)
+app.include_router(pagos_router)
 
 
 @app.exception_handler(DomainValidationError)
@@ -220,6 +228,33 @@ async def envio_firma_no_disponible_handler(
     request: Request, exc: EnvioFirmaNoDisponible
 ) -> JSONResponse:
     """The proveedor externo (Viafirma) could not be reached — a clear,
+    non-500 response per design.md's risk mitigation, so the caller sees an
+    explicit "reintentar" state instead of a generic server error."""
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
+@app.exception_handler(PagoNoEncontrado)
+async def pago_no_encontrado_handler(request: Request, exc: PagoNoEncontrado) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(PagoYaCompletado)
+async def pago_ya_completado_handler(request: Request, exc: PagoYaCompletado) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(ArrendamientoActivoNoEncontrado)
+async def arrendamiento_activo_no_encontrado_handler(
+    request: Request, exc: ArrendamientoActivoNoEncontrado
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(CobroPagoNoDisponible)
+async def cobro_pago_no_disponible_handler(
+    request: Request, exc: CobroPagoNoDisponible
+) -> JSONResponse:
+    """The proveedor externo (Wompi) could not be reached — a clear,
     non-500 response per design.md's risk mitigation, so the caller sees an
     explicit "reintentar" state instead of a generic server error."""
     return JSONResponse(status_code=503, content={"detail": str(exc)})

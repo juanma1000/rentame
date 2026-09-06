@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Local scratch data
+/data/
+
 # Python (backend)
 __pycache__/
 *.py[cod]
@@ -43,7 +46,6 @@ yarn-error.log*
 !.vscode/extensions.json
 .idea/
 *.swp
-.claude/
 
 # OS
 .DS_Store

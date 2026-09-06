@@ -60,6 +60,17 @@ class Settings(BaseSettings):
     sura_api_key: str | None = None
     sura_base_url: str = "https://api.sura.com"
 
+    # `firma-contrato` domain
+    # (`openspec/changes/firma-electronica-contrato-arrendamiento`): selects
+    # the `ProveedorFirmaElectronicaPort` adapter
+    # (`firma_contrato/infrastructure/proveedor.py`). `"fake"` (default) is
+    # safe in every environment until Viafirma credentials are configured,
+    # per design.md's Migration Plan step 2; only `"viafirma"` requires
+    # `viafirma_api_key` to be set.
+    firma_contrato_proveedor: str = "fake"
+    viafirma_api_key: str | None = None
+    viafirma_base_url: str = "https://api.viafirma.com.co"
+
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
 

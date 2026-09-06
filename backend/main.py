@@ -24,6 +24,15 @@ from agencias.domain.exceptions import (
 )
 from agencias.domain.exceptions import PropietarioInvalido as AgenciaPropietarioInvalido
 from agencias.infrastructure.api.router import router as agencias_router
+from firma_contrato.application.procesar_resultado_firma import ContratoNoEncontrado
+from firma_contrato.domain.exceptions import (
+    ArrendamientoRequiereContratoFirmado,
+    ContratoNoEnviadoAFirma,
+    ContratoYaFirmado,
+    EnvioFirmaNoDisponible,
+    PolizaNoAprobada,
+)
+from firma_contrato.infrastructure.api.router import router as firma_contrato_router
 from identidad.domain.exceptions import IdentidadYaVerificada, ValidacionNoDisponible
 from identidad.infrastructure.api.router import router as identidad_router
 from inmuebles.domain.exceptions import InmuebleNoEncontrado, PropietarioInvalido
@@ -65,6 +74,7 @@ app.include_router(agencias_router)
 app.include_router(usuarios_router)
 app.include_router(identidad_router)
 app.include_router(seguro_arrendamiento_router)
+app.include_router(firma_contrato_router)
 
 
 @app.exception_handler(DomainValidationError)
@@ -170,6 +180,47 @@ async def contratacion_no_disponible_handler(
 ) -> JSONResponse:
     """The proveedor externo (Sura) could not be reached — a clear, non-500
     response per design.md's risk mitigation, so the inquilino sees an
+    explicit "reintentar" state instead of a generic server error."""
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
+@app.exception_handler(PolizaNoAprobada)
+async def poliza_no_aprobada_handler(request: Request, exc: PolizaNoAprobada) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+@app.exception_handler(ContratoYaFirmado)
+async def contrato_ya_firmado_handler(request: Request, exc: ContratoYaFirmado) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(ContratoNoEnviadoAFirma)
+async def contrato_no_enviado_a_firma_handler(
+    request: Request, exc: ContratoNoEnviadoAFirma
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(ContratoNoEncontrado)
+async def contrato_no_encontrado_handler(
+    request: Request, exc: ContratoNoEncontrado
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(ArrendamientoRequiereContratoFirmado)
+async def arrendamiento_requiere_contrato_firmado_handler(
+    request: Request, exc: ArrendamientoRequiereContratoFirmado
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(EnvioFirmaNoDisponible)
+async def envio_firma_no_disponible_handler(
+    request: Request, exc: EnvioFirmaNoDisponible
+) -> JSONResponse:
+    """The proveedor externo (Viafirma) could not be reached — a clear,
+    non-500 response per design.md's risk mitigation, so the caller sees an
     explicit "reintentar" state instead of a generic server error."""
     return JSONResponse(status_code=503, content={"detail": str(exc)})
 

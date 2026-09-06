@@ -14,6 +14,7 @@ from agencias.infrastructure.persistence.models import (  # noqa: F401
     SolicitudIngresoAgenciaORM,
 )
 from alembic import context
+from identidad.infrastructure.persistence.models import ValidacionIdentidadORM  # noqa: F401
 from inmuebles.infrastructure.persistence.models import (  # noqa: F401
     FotoInmuebleORM,
     InmuebleORM,

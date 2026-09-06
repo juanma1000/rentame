@@ -13,6 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from shared.infrastructure.auth.dependencies import (
     get_current_agente,
+    get_current_inquilino,
     get_current_propietario,
     get_current_publicador,
 )
@@ -118,6 +119,55 @@ class TestGetCurrentAgenteRejectedCases:
         # Act / Assert
         with pytest.raises(HTTPException) as exc_info:
             await get_current_agente(credentials)
+
+        assert exc_info.value.status_code == 401
+
+
+class TestGetCurrentInquilinoValidToken:
+    """`get_current_inquilino`, added by
+    `openspec/changes/validacion-identidad-inquilino` (task 5.x): the
+    `POST /identidad/validar` endpoint needs an authenticated inquilino,
+    same shape as `get_current_propietario`/`get_current_agente`."""
+
+    async def test_should_return_payload_when_token_has_inquilino_role(self) -> None:
+        # Arrange
+        usuario_id = str(uuid4())
+        token = create_access_token(usuario_id=usuario_id, rol="inquilino")
+
+        # Act
+        payload = await get_current_inquilino(_credentials_for(token))
+
+        # Assert
+        assert payload.sub == usuario_id
+        assert payload.rol == "inquilino"
+
+
+class TestGetCurrentInquilinoRejectedCases:
+    async def test_should_raise_401_when_authorization_header_is_missing(self) -> None:
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_inquilino(None)
+
+        assert exc_info.value.status_code == 401
+
+    async def test_should_raise_401_when_token_is_invalid(self) -> None:
+        # Arrange
+        credentials = _credentials_for("not-a-valid-jwt")
+
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_inquilino(credentials)
+
+        assert exc_info.value.status_code == 401
+
+    async def test_should_raise_401_when_role_is_not_inquilino(self) -> None:
+        # Arrange
+        token = create_access_token(usuario_id=str(uuid4()), rol="propietario")
+        credentials = _credentials_for(token)
+
+        # Act / Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_inquilino(credentials)
 
         assert exc_info.value.status_code == 401
 

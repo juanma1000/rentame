@@ -58,6 +58,7 @@ class UsuarioRepositoryPostgres:
             nombre=usuario.nombre,
             rol=usuario.rol,
             agencia_id=usuario.agencia_id,
+            identidad_verificada=usuario.identidad_verificada,
         )
 
     @staticmethod
@@ -69,4 +70,5 @@ class UsuarioRepositoryPostgres:
             nombre=modelo.nombre or "",
             rol=modelo.rol,
             agencia_id=modelo.agencia_id,
+            identidad_verificada=modelo.identidad_verificada,
         )

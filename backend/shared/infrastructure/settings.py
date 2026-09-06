@@ -39,6 +39,16 @@ class Settings(BaseSettings):
 
     max_fotos_inmueble: int = 10
 
+    # `identidad` domain (`openspec/changes/validacion-identidad-inquilino`):
+    # selects the `ProveedorValidacionIdentidadPort` adapter
+    # (`identidad/infrastructure/proveedor.py`). `"fake"` (default) is safe
+    # in every environment until Truora credentials are configured, per
+    # design.md's Migration Plan step 2; only `"truora"` requires
+    # `truora_api_key` to be set.
+    identidad_proveedor: str = "fake"
+    truora_api_key: str | None = None
+    truora_base_url: str = "https://api.truora.com"
+
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
 

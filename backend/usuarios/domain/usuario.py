@@ -34,6 +34,12 @@ class Usuario:
     rol: str
     id: uuid.UUID | None = None
     agencia_id: uuid.UUID | None = None
+    # `True` once the `identidad` capability registers an approved
+    # `ValidacionIdentidad` for this account (spec.md of
+    # `openspec/changes/validacion-identidad-inquilino`). Permanent — there
+    # is no method on this entity to revert it back to `False`, same
+    # pattern as `rol`.
+    identidad_verificada: bool = False
 
     @classmethod
     def crear(cls, *, email: str, password: str, nombre: str, rol: str) -> Usuario:

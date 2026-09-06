@@ -119,6 +119,7 @@ erDiagram
         string telefono
         string rol "propietario | agente | inquilino"
         uuid agencia_id FK "nullable — solo aplica a rol=agente"
+        boolean identidad_verificada "default false — marcado por validacion-identidad-inquilino"
         boolean activo
         timestamp creado_en
         timestamp actualizado_en
@@ -148,6 +149,15 @@ erDiagram
         string estado "pendiente | activa | revocada"
         timestamp creado_en
         timestamp activado_en
+    }
+
+    VALIDACION_IDENTIDAD {
+        uuid id PK
+        uuid usuario_id FK
+        string cedula
+        string estado "pendiente | aprobado | rechazado"
+        string referencia_externa "id de tracking del proveedor (Truora)"
+        timestamp creado_en
     }
 
     INMUEBLE {
@@ -714,22 +724,33 @@ backend/
 │           ├── models.py             # AgenciaORM, SolicitudIngresoAgenciaORM, RelacionAgenciaPropietarioORM
 │           └── repository.py         # Repositorios Postgres para cada puerto
 │
-├── identidad/
+├── identidad/                        # implementado (change validacion-identidad-inquilino)
 │   ├── domain/
-│   │   ├── validacion_identidad.py  # Entidad ValidacionIdentidad, EstadoValidacion enum
-│   │   ├── ports.py                 # ValidacionRepositoryPort, IdentityVerificationPort
-│   │   └── exceptions.py            # IdentidadYaVerificada, ValidacionRechazada
+│   │   ├── validacion_identidad.py  # Entidad ValidacionIdentidad (estados pendiente/aprobado/
+│   │   │                            # rechazado); invariante "una sola validación aprobada por cuenta"
+│   │   ├── ports.py                 # ProveedorValidacionIdentidadPort (Protocol, .validar(cedula,
+│   │   │                            # imagen_frente, imagen_dorso) -> ResultadoValidacion),
+│   │   │                            # ValidacionIdentidadRepositoryPort, UsuarioIdentidadRepositoryPort
+│   │   └── exceptions.py            # IdentidadYaVerificada (409), ValidacionNoDisponible (503)
 │   ├── application/
-│   │   └── validar_identidad.py     # UC: verifica idempotencia, sube docs, llama puerto externo
+│   │   └── iniciar_validacion_identidad.py # UC: rechaza sin llamar al proveedor si ya verificado;
+│   │   │                            # si no, llama proveedor, persiste ValidacionIdentidad, marca
+│   │   │                            # usuario.identidad_verificada=True si aprobado
 │   └── infrastructure/
+│       ├── adapters/
+│       │   ├── fake_adapter.py      # ProveedorValidacionIdentidadPort — siempre aprueba, referencia
+│       │   │                        # externa determinística (dev/test, default)
+│       │   └── truora_adapter.py    # ProveedorValidacionIdentidadPort — HTTP real a Truora; mapea
+│       │                            # timeout/error a ValidacionNoDisponible en vez de 500
+│       ├── proveedor.py             # Factory: elige Fake/Truora por variable de ambiente
 │       ├── api/
-│       │   ├── router.py            # POST /identidad/validar, GET /identidad/estado
-│       │   └── schemas.py           # ValidarIdentidadRequest, ValidacionResponse
-│       ├── persistence/
-│       │   ├── models.py            # ValidacionIdentidadORM
-│       │   └── repository.py        # ValidacionRepositoryPostgres
-│       └── external/
-│           └── proveedor_identidad_adapter.py # IdentityVerificationPort → HTTP proveedor CO
+│       │   ├── router.py            # POST /identidad/validar (multipart cédula+imágenes; requiere
+│       │   │                        # inquilino autenticado; imágenes nunca se escriben a disco/BD,
+│       │   │                        # solo se reenvían al proveedor y se descartan)
+│       │   └── schemas.py           # ValidarIdentidadResponse
+│       └── persistence/
+│           ├── models.py            # ValidacionIdentidadORM
+│           └── repository.py        # ValidacionIdentidadRepositoryPostgres, UsuarioIdentidadRepositoryPostgres
 │
 ├── arrendamiento/
 │   ├── domain/

@@ -17,7 +17,7 @@ the application layer reads/writes it.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,6 +36,12 @@ class UsuarioORM(Base):
     rol: Mapped[str] = mapped_column(String(20), nullable=False)
     agencia_id: Mapped[uuid.UUID | None] = mapped_column(
         postgresql.UUID(as_uuid=True), ForeignKey("agencia.id"), nullable=True
+    )
+    # Added by `openspec/changes/validacion-identidad-inquilino` (task 4.4):
+    # `True` once `identidad`'s `iniciar_validacion_identidad` use case
+    # registers an approved `ValidacionIdentidad` for this account.
+    identidad_verificada: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
     )
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

@@ -171,6 +171,27 @@ erDiagram
         timestamp creado_en
     }
 
+    CONTRATO {
+        uuid id PK
+        uuid usuario_id FK
+        uuid poliza_id FK
+        uuid inmueble_id FK
+        string estado "borrador | enviado_a_firma | firmado | rechazado | expirado"
+        string documento_referencia
+        string referencia_externa "id de tracking del proveedor (Viafirma)"
+        timestamp creado_en
+    }
+
+    ARRENDAMIENTO_ACTIVO {
+        uuid id PK
+        uuid usuario_id FK
+        uuid contrato_id FK
+        uuid inmueble_id FK
+        date fecha_inicio
+        string estado "activo"
+        timestamp creado_en
+    }
+
     INMUEBLE {
         uuid id PK
         uuid propietario_id FK
@@ -763,31 +784,53 @@ backend/
 │           ├── models.py            # ValidacionIdentidadORM
 │           └── repository.py        # ValidacionIdentidadRepositoryPostgres, UsuarioIdentidadRepositoryPostgres
 │
-├── arrendamiento/
+├── firma_contrato/                    # implementado (change firma-electronica-contrato-arrendamiento, HU-009)
 │   ├── domain/
-│   │   ├── solicitud.py             # Entidad SolicitudArrendamiento, EstadoSolicitud enum
-│   │   ├── contrato.py              # Entidad Contrato, EstadoContrato enum
-│   │   ├── arrendamiento_activo.py  # Entidad ArrendamientoActivo
-│   │   ├── ports.py                 # SolicitudRepositoryPort, ContratoRepositoryPort,
-│   │   │                            # ElectronicSignaturePort, ArrendamientoRepositoryPort
-│   │   └── exceptions.py            # SolicitudNoValida, IdentidadNoVerificada, ContratoNoFirmado
+│   │   ├── contrato.py               # Entidad Contrato (borrador/enviado_a_firma/firmado/
+│   │   │                             # rechazado/expirado); un contrato firmado no puede reenviarse
+│   │   ├── arrendamiento_activo.py   # Entidad ArrendamientoActivo — creada SOLO cuando Contrato
+│   │   │                             # pasa a firmado; gate real que consultará HU-006 (pago mensual)
+│   │   ├── ports.py                  # ProveedorFirmaElectronicaPort (.enviar_a_firma(documento) ->
+│   │   │                             # ResultadoEnvioFirma), ContratoRepositoryPort,
+│   │   │                             # ArrendamientoActivoRepositoryPort, PolizaArrendamientoPort
+│   │   │                             # (lectura de solo lectura sobre PolizaArrendamiento.estado)
+│   │   └── exceptions.py             # PolizaNoAprobada (403), ContratoYaFirmado/
+│   │                                 # ContratoNoEnviadoAFirma/ArrendamientoRequiereContratoFirmado
+│   │                                 # (409), ContratoNoEncontrado (404), EnvioFirmaNoDisponible (503)
 │   ├── application/
-│   │   ├── crear_solicitud.py       # UC: inquilino inicia solicitud sobre un inmueble disponible
-│   │   ├── adjuntar_documentos.py   # UC: sube docs + dispara análisis de riesgo (orquesta riesgo/)
-│   │   ├── aprobar_solicitud.py     # UC: propietario aprueba → genera contrato
-│   │   ├── rechazar_solicitud.py    # UC: propietario rechaza solicitud
-│   │   ├── generar_contrato.py      # UC: llama ElectronicSignaturePort, persiste contrato
-│   │   └── procesar_firma_webhook.py# UC: webhook de firma → marca firmado → crea ArrendamientoActivo
+│   │   ├── generar_contrato.py       # UC: rechaza sin generar documento si la póliza no está
+│   │   │                             # aprobada; si no, genera el documento (template propio) y lo
+│   │   │                             # envía al proveedor de firma
+│   │   ├── template_contrato.py      # Genera el texto legal del contrato (partes, canon, duración
+│   │   │                             # mínima 6 meses) — Rentame controla el contenido, el proveedor
+│   │   │                             # de firma solo gestiona el proceso de firma
+│   │   └── procesar_resultado_firma.py # UC (invocado por el webhook): firmado -> marca Contrato +
+│   │                                 # crea ArrendamientoActivo; rechazado/expirado -> marca Contrato
+│   │                                 # sin tocar la póliza asociada (queda huérfana, sin cancelación
+│   │                                 # automática — decisión explícita, fuera de alcance)
 │   └── infrastructure/
+│       ├── adapters/
+│       │   ├── fake_adapter.py       # ProveedorFirmaElectronicaPort — siempre firma, referencia
+│       │   │                        # externa determinística (dev/test, default)
+│       │   └── viafirma_adapter.py   # ProveedorFirmaElectronicaPort — HTTP real a Viafirma; contrato
+│       │                            # exacto es open question (elegido por su enfoque específico en
+│       │                            # Colombia/Ley 527 de 1999 frente a Docusign/Zoho Sign)
+│       ├── proveedor.py             # Factory: elige Fake/Viafirma por variable de ambiente
 │       ├── api/
-│       │   ├── router.py            # POST /solicitudes, POST /solicitudes/{id}/documentos,
-│       │   │                        # POST /solicitudes/{id}/aprobar, POST /contratos/webhook
-│       │   └── schemas.py           # SolicitudCreateRequest, DocumentoUpload, ContratoResponse
-│       ├── persistence/
-│       │   ├── models.py            # SolicitudORM, DocumentoORM, ContratoORM, ArrendamientoORM
-│       │   └── repository.py        # Repositorios Postgres para cada entidad
-│       └── external/
-│           └── firma_electronica_adapter.py # ElectronicSignaturePort → HTTP proveedor firma
+│       │   ├── router.py            # POST /firma-contrato/generar (requiere inquilino autenticado);
+│       │   │                        # POST /firma-contrato/webhook (sin auth — lo llama el proveedor;
+│       │   │                        # validar el origen real es open question de ViafirmaAdapter)
+│       │   └── schemas.py           # ContratoResponse, WebhookFirmaRequest
+│       └── persistence/
+│           ├── models.py            # ContratoORM, ArrendamientoActivoORM
+│           ├── repository.py        # ContratoRepositoryPostgres, ArrendamientoActivoRepositoryPostgres
+│           └── poliza_arrendamiento_repository.py # PolizaArrendamientoPort — lee PolizaArrendamiento
+│                                     # de seguro_arrendamiento sin acoplarse a su infraestructura
+│
+│   # Fuera de alcance de este dominio (ver design.md de HU-009):
+│   #  - "solicitud de arrendamiento" (elegir un inmueble concreto y solicitarlo) — concepto todavía
+│   #    no construido; hoy el gate de este dominio es la PolizaArrendamiento aprobada, no una solicitud
+│   #  - HU-006 (pago mensual) — consumirá ArrendamientoActivo cuando exista
 │
 ├── seguro_arrendamiento/              # implementado (change seguro-arrendamiento-inquilino, HU-005)
 │   ├── domain/

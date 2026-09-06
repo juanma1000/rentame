@@ -32,11 +32,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from firma_contrato.application.consultar_estado_firma import consultar_estado_firma
 from firma_contrato.application.generar_contrato import GenerarContratoCommand, generar_contrato
 from firma_contrato.application.procesar_resultado_firma import procesar_resultado_firma
 from firma_contrato.domain.ports import ProveedorFirmaElectronicaPort, ResultadoFirmaWebhook
 from firma_contrato.infrastructure.api.schemas import (
     ContratoResponse,
+    EstadoFirmaResponse,
     GenerarContratoRequest,
     WebhookFirmaRequest,
 )
@@ -153,3 +155,30 @@ async def webhook_firma_endpoint(
         arrendamiento_repository=arrendamiento_repository,
     )
     return ContratoResponse.from_domain(contrato)
+
+
+@router.get("/estado", status_code=status.HTTP_200_OK, response_model=EstadoFirmaResponse)
+async def consultar_estado_firma_endpoint(
+    current_inquilino: CurrentInquilino,
+    contrato_repository: ContratoRepository,
+    arrendamiento_repository: ArrendamientoRepository,
+) -> EstadoFirmaResponse:
+    """`GET /firma-contrato/estado` — read-only: returns the current
+    inquilino's firma-contrato estado (`"no_iniciado"` if no `Contrato`
+    exists, otherwise the most recent one's estado plus the
+    `arrendamiento_activo_id` when it is `firmado`), so the
+    `frontend-flujo-arrendamiento` wizard can know which step it is on
+    without depending on error codes from `POST /firma-contrato/generar`.
+
+    Never creates or modifies any record, and never calls `proveedor` —
+    same rationale as `consultar_estado_firma`'s own docstring.
+    """
+    resultado = await consultar_estado_firma(
+        uuid.UUID(current_inquilino.sub),
+        contrato_repository=contrato_repository,
+        arrendamiento_repository=arrendamiento_repository,
+    )
+    return EstadoFirmaResponse(
+        estado=resultado.estado,
+        arrendamiento_activo_id=resultado.arrendamiento_activo_id,
+    )

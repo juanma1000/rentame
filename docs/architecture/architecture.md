@@ -938,7 +938,13 @@ frontend/
 │   │   │   ├── InmuebleDetallePublicoPage.tsx # HU-003, migrado en design-system-premium-real-estate:
 │   │   │   │                              # detalle público completo (todas las fotos, descripción,
 │   │   │   │                              # datos del formulario); título serif, `Button` de
-│   │   │   │                              # `@rentame/ui` para "Volver"; sin sesión
+│   │   │   │                              # `@rentame/ui` para "Volver"; sin sesión. Change
+│   │   │   │                              # frontend-flujo-arrendamiento: botón "Solicitar
+│   │   │   │                              # arrendamiento", visible solo con rol=inquilino (via
+│   │   │   │                              # `useAuth()` de `@rentame/auth`); sin sesión redirige a
+│   │   │   │                              # /login; con sesión de inquilino, lazy-carga
+│   │   │   │                              # `arrendamientoApp/ArrendamientoRoutes` (remote consumido
+│   │   │   │                              # directamente, no solo vía shell — ver `rspack.config.ts`)
 │   │   │   ├── PublicarInmueblePage.tsx    # Formulario de publicación; selector de propietario
 │   │   │   │                              # condicional por rol (agente, HU-002); ui-formulario-inmueble:
 │   │   │   │                              # tarjeta/secciones/grid vía `styles/forms.ts`, integra
@@ -988,62 +994,41 @@ frontend/
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── identidad-app/                      # Remote: validación de identidad del inquilino (HU-004)
+├── arrendamiento-app/                  # implementado (change frontend-flujo-arrendamiento) — Remote:
+│   │                                    # wizard de 4 pasos (identidad→seguro→firma→arrendamiento
+│   │                                    # activo) + "Mi arrendamiento" (historial/pago), consumiendo
+│   │                                    # los 4 dominios backend ya existentes. Reemplaza el plan
+│   │                                    # aspiracional original de 3 remotes separados
+│   │                                    # (identidad-app/arrendamiento-app/pagos-app, nunca construidos)
+│   │                                    # — decisión: un solo remote, mismo criterio que agrupó varias
+│   │                                    # páginas de HU-001/002/003 en `inmuebles-app`. Puerto 3002.
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── IdentityStatusBadge.tsx # Badge: Verificado / Pendiente / Rechazado
-│   │   │   └── DocumentUploader.tsx    # Input de imagen con preview (frente/dorso cédula)
 │   │   ├── pages/
-│   │   │   └── ValidateIdentityPage.tsx# Formulario de cédula + carga de fotos + resultado
+│   │   │   ├── ValidarIdentidadPage.tsx    # Paso 1: formulario cédula+frente+dorso o confirmación
+│   │   │   │                              # si ya aprobado (HU-004)
+│   │   │   ├── ContratarSeguroPage.tsx     # Paso 2: no accesible sin identidad aprobada; formulario
+│   │   │   │                              # de documentos o confirmación+prima si ya aprobada (HU-005)
+│   │   │   ├── GenerarContratoPage.tsx     # Paso 3: no accesible sin póliza aprobada; genera y envía
+│   │   │   │                              # a firma; navega a "Mi arrendamiento" si firmado (HU-009)
+│   │   │   └── MiArrendamientoPage.tsx     # Historial completo de pagos + botón "Pagar" si hay
+│   │   │                                  # pendiente (HU-006) — página separada, no paso del wizard
 │   │   ├── services/
-│   │   │   └── identityService.ts      # validateIdentity(), getIdentityStatus()
-│   │   ├── model/
-│   │   │   └── identity.types.ts       # IdentityValidation, ValidationStatus
-│   │   ├── IdentityRoutes.tsx          # Expuesto via Module Federation (./IdentityRoutes)
-│   │   └── index.tsx
-│   ├── rspack.config.ts                # exposes: { './IdentityRoutes': './src/IdentityRoutes' }
-│   ├── package.json
-│   └── tsconfig.json
-│
-├── arrendamiento-app/                  # Remote: solicitudes y contratos (HU-005)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ApplicationTimeline.tsx # Timeline de estados de la solicitud
-│   │   │   ├── DocumentList.tsx        # Lista de documentos adjuntados con estado
-│   │   │   └── ContractSignFlow.tsx    # Instrucciones + link a proveedor de firma
-│   │   ├── pages/
-│   │   │   ├── StartApplicationPage.tsx    # Inquilino: resumen del inmueble + confirmación
-│   │   │   ├── UploadDocumentsPage.tsx     # Inquilino: carga de desprendibles y certificados
-│   │   │   ├── MyApplicationsPage.tsx      # Inquilino: panel con estado de solicitudes
-│   │   │   ├── ReceivedApplicationsPage.tsx# Propietario/agente: solicitudes recibidas
-│   │   │   ├── ApplicationDetailPage.tsx   # Vista completa con timeline y acciones
-│   │   │   └── ContractSignPage.tsx        # Ambas partes: instrucciones de firma
-│   │   ├── services/
-│   │   │   └── rentalService.ts        # createApplication(), uploadDocuments(), approve(), reject()
-│   │   ├── model/
-│   │   │   └── rental.types.ts         # Application, Contract, ApplicationStatus, ActiveRental
-│   │   ├── RentalRoutes.tsx            # Expuesto via Module Federation (./RentalRoutes)
-│   │   └── index.tsx
-│   ├── rspack.config.ts                # exposes: { './RentalRoutes': './src/RentalRoutes' }
-│   ├── package.json
-│   └── tsconfig.json
-│
-├── pagos-app/                          # Remote: pagos mensuales (HU-006)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── PaymentMethodSelector.tsx # Selector PSE / Tarjeta
-│   │   │   ├── PaymentHistoryTable.tsx   # Tabla: período, monto, estado, comprobante
-│   │   │   └── ReceiptLink.tsx           # Link de descarga del PDF de comprobante
-│   │   ├── pages/
-│   │   │   ├── PaymentDashboardPage.tsx  # Monto actual, fecha límite, botón "Pagar"
-│   │   │   └── PaymentHistoryPage.tsx    # Historial paginado con descarga de comprobantes
-│   │   ├── services/
-│   │   │   └── paymentService.ts         # initiatePayment(), getPaymentHistory(), getReceipt()
-│   │   ├── model/
-│   │   │   └── payment.types.ts          # Payment, PaymentStatus, PaymentMethod, PaymentDashboard
-│   │   ├── PaymentRoutes.tsx             # Expuesto via Module Federation (./PaymentRoutes)
-│   │   └── index.tsx
-│   ├── rspack.config.ts                  # exposes: { './PaymentRoutes': './src/PaymentRoutes' }
+│   │   │   ├── identidad.api.ts        # obtenerEstado(), validarIdentidad(cedula, frente, dorso)
+│   │   │   ├── seguro.api.ts           # obtenerEstado(), contratarSeguro(cedula, documentos)
+│   │   │   ├── firma.api.ts           # obtenerEstado(), generarContrato(datosContrato)
+│   │   │   └── pagos.api.ts           # obtenerHistorial(arrendamientoActivoId), iniciarPago(pagoId)
+│   │   ├── ArrendamientoRoutes.tsx     # Expuesto vía Module Federation (./ArrendamientoRoutes);
+│   │   │                              # orquesta orden estricto — consulta los 3 GET /estado al
+│   │   │                              # montar y navega al primer paso cuyo gate no está satisfecho
+│   │   └── main.tsx / bootstrap.tsx
+│   ├── rspack.config.ts               # exposes: { './ArrendamientoRoutes': './src/ArrendamientoRoutes' },
+│   │                                  # puerto 3002; también consumido directamente por `inmuebles-app`
+│   │                                  # (no solo vía shell) desde `InmuebleDetallePublicoPage`
+│   ├── Dockerfile / nginx.conf         # mismo patrón que inmuebles-app; servicio en docker-compose.yml
+│   │                                  # (puerto host 3002) — agregado en QA de este change tras
+│   │                                  # detectar que el scaffold original no incluía despliegue
+│   │                                  # Docker (el remote en modo dev crasheaba contra el shell de
+│   │                                  # producción por mismatch de singleton de React)
 │   ├── package.json
 │   └── tsconfig.json
 │

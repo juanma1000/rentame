@@ -29,6 +29,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from seguro_arrendamiento.application.consultar_estado_seguro import consultar_estado_seguro
 from seguro_arrendamiento.application.contratar_seguro_arrendamiento import (
     ContratarSeguroArrendamientoCommand,
     contratar_seguro_arrendamiento,
@@ -36,6 +37,7 @@ from seguro_arrendamiento.application.contratar_seguro_arrendamiento import (
 from seguro_arrendamiento.domain.ports import ProveedorSeguroArrendamientoPort
 from seguro_arrendamiento.infrastructure.api.schemas import (
     ContratarSeguroArrendamientoResponse,
+    EstadoSeguroResponse,
 )
 from seguro_arrendamiento.infrastructure.persistence.repository import (
     PolizaArrendamientoRepositoryPostgres,
@@ -114,3 +116,25 @@ async def contratar_seguro_arrendamiento_endpoint(
         proveedor=proveedor,
     )
     return ContratarSeguroArrendamientoResponse.from_domain(poliza)
+
+
+@router.get("/estado", status_code=status.HTTP_200_OK, response_model=EstadoSeguroResponse)
+async def consultar_estado_seguro_endpoint(
+    current_inquilino: CurrentInquilino,
+    poliza_repository: PolizaRepository,
+) -> EstadoSeguroResponse:
+    """`GET /seguro-arrendamiento/estado` — read-only: returns the current
+    inquilino's seguro de arrendamiento estado (`"no_iniciado"` if no
+    `PolizaArrendamiento` exists, otherwise the most recent one's estado
+    and `prima_mensual`), so the `frontend-flujo-arrendamiento` wizard can
+    know which step it is on without depending on error codes from
+    `POST /seguro-arrendamiento/contratar`.
+
+    Never creates or modifies any record, and never calls `proveedor` —
+    same rationale as `consultar_estado_seguro`'s own docstring.
+    """
+    resultado = await consultar_estado_seguro(
+        uuid.UUID(current_inquilino.sub),
+        poliza_repository=poliza_repository,
+    )
+    return EstadoSeguroResponse(estado=resultado.estado, prima_mensual=resultado.prima_mensual)

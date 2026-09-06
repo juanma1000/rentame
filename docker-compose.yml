@@ -75,7 +75,7 @@ services:
       STORAGE_BUCKET_NAME: ${STORAGE_BUCKET_NAME:-inmuebles}
       STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
       MAX_FOTOS_INMUEBLE: ${MAX_FOTOS_INMUEBLE:-10}
-      CORS_ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost:3001"]'
+      CORS_ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost:3001","http://localhost:3002"]'
     ports:
       - "8000:8000"
     # Dev-time bind mount: host source changes are picked up without
@@ -107,6 +107,19 @@ services:
     restart: unless-stopped
     ports:
       - "3001:80"
+
+  arrendamiento-app:
+    build:
+      context: ./frontend
+      dockerfile: arrendamiento-app/Dockerfile
+      args:
+        # Browser-facing address — baked into the static bundle at build
+        # time, must be reachable from the host, not the docker network.
+        ARRENDAMIENTO_API_URL: http://localhost:8000
+    container_name: rentame-arrendamiento-app
+    restart: unless-stopped
+    ports:
+      - "3002:80"
 
 volumes:
   postgres_data:

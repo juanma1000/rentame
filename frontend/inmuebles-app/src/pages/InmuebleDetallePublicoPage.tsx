@@ -8,11 +8,21 @@
  * disponible o inexistente), shows a "ya no está disponible" message instead
  * of crashing. `onVolver()` returns to the listing in both cases.
  */
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { typography } from '@rentame/design-tokens';
 import { Button } from '@rentame/ui';
+import { useAuth } from '@rentame/auth';
 import { InmueblesApiError, obtenerPublico } from '../services/inmuebles.api';
 import type { InmueblePublicoDetalle } from '../services/inmuebles.api';
+
+// Cross-remote Module Federation import (frontend-flujo-arrendamiento, task
+// 13.2): `arrendamiento-app` is declared as a `remotes` entry in this
+// package's own `rspack.config.ts` (in addition to the shell's), so this
+// remote can load it directly without routing through the shell — same MF2
+// async-boundary pattern `React.lazy` + `Suspense` already uses elsewhere
+// in this codebase (see `shell/src/pages/MisInmueblesPage.tsx`). Ambient
+// declaration lives in `src/remotes.d.ts`.
+const ArrendamientoRoutes = React.lazy(() => import('arrendamientoApp/ArrendamientoRoutes'));
 
 // ---------------------------------------------------------------------------
 // Props
@@ -23,6 +33,14 @@ interface Props {
   id: string;
   /** Called when the "Volver" control is activated, from either view. */
   onVolver: () => void;
+  /**
+   * Called when "Solicitar arrendamiento" is clicked without an active
+   * session. Defaults to a hard navigation to `/login` — this remote does
+   * not own a react-router instance (design.md decisión 5 applies the same
+   * way here), so a full-page redirect to the shell-owned `/login` route is
+   * the simplest option; overridable for tests.
+   */
+  onIrALogin?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,11 +55,32 @@ function formatValor(valor: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
-const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
+const InmuebleDetallePublicoPage: React.FC<Props> = ({
+  id,
+  onVolver,
+  onIrALogin = () => {
+    window.location.href = '/login';
+  },
+}) => {
+  const { isAuthenticated, role } = useAuth();
   const [detalle, setDetalle] = useState<InmueblePublicoDetalle | null>(null);
   const [loading, setLoading] = useState(true);
   const [noDisponible, setNoDisponible] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [mostrarWizard, setMostrarWizard] = useState(false);
+
+  // Visible unless the active session belongs to a propietario/agente (an
+  // unauthenticated visitor still sees it — clicking redirects to login —
+  // per the "Sin sesión, el clic redirige a autenticación" scenario).
+  const mostrarBotonSolicitar = role !== 'propietario' && role !== 'agente';
+
+  const handleSolicitarArrendamiento = () => {
+    if (!isAuthenticated) {
+      onIrALogin();
+      return;
+    }
+    setMostrarWizard(true);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -96,11 +135,35 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({ id, onVolver }) => {
     );
   }
 
+  // Once "Solicitar arrendamiento" is clicked by an authenticated inquilino,
+  // replace the detail view with the arrendamiento wizard — same
+  // "swap the whole view" pattern `PropertyRoutes.tsx`'s state machine uses,
+  // just local to this page instead of a sibling view.
+  if (mostrarWizard) {
+    return (
+      <div style={containerStyle}>
+        <Suspense fallback={<p>Cargando...</p>}>
+          <ArrendamientoRoutes
+            inmuebleId={detalle.id}
+            direccionInmueble={detalle.direccion}
+            canonMensual={detalle.valorMensual}
+          />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div style={containerStyle}>
       <Button variant="secondary" onClick={onVolver}>
         Volver
       </Button>
+
+      {mostrarBotonSolicitar && (
+        <Button variant="primary" onClick={handleSolicitarArrendamiento}>
+          Solicitar arrendamiento
+        </Button>
+      )}
 
       <div style={fotosStyle}>
         {detalle.fotos.map((foto) => (

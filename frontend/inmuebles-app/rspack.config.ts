@@ -60,6 +60,16 @@ const config: Configuration = {
       // inmueblesApp: 'inmueblesApp@http://localhost:3001/remoteEntry.js'
       name: 'inmueblesApp',
       filename: 'remoteEntry.js',
+      // inmuebles-app is primarily a remote (exposes below), but it also
+      // consumes arrendamiento-app directly (frontend-flujo-arrendamiento,
+      // task 13.2): `InmuebleDetallePublicoPage`'s "Solicitar arrendamiento"
+      // lazy-loads `arrendamientoApp/ArrendamientoRoutes` cross-remote,
+      // without routing through the shell — same remote URL the shell
+      // itself points to (both consumers share one running instance on
+      // port 3002).
+      remotes: {
+        arrendamientoApp: 'arrendamientoApp@http://localhost:3002/remoteEntry.js',
+      },
       exposes: {
         // Exposed as 'inmueblesApp/PropertyRoutes' — declared in shell's
         // remotes.d.ts and lazy-loaded from task 16+.

@@ -29,12 +29,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from identidad.application.consultar_estado_identidad import consultar_estado_identidad
 from identidad.application.iniciar_validacion_identidad import (
     IniciarValidacionIdentidadCommand,
     iniciar_validacion_identidad,
 )
 from identidad.domain.ports import ProveedorValidacionIdentidadPort
-from identidad.infrastructure.api.schemas import ValidarIdentidadResponse
+from identidad.infrastructure.api.schemas import (
+    EstadoIdentidadResponse,
+    ValidarIdentidadResponse,
+)
 from identidad.infrastructure.persistence.repository import (
     UsuarioIdentidadRepositoryPostgres,
     ValidacionIdentidadRepositoryPostgres,
@@ -109,3 +113,24 @@ async def validar_identidad_endpoint(
         proveedor=proveedor,
     )
     return ValidarIdentidadResponse.from_domain(validacion)
+
+
+@router.get("/estado", status_code=status.HTTP_200_OK, response_model=EstadoIdentidadResponse)
+async def consultar_estado_identidad_endpoint(
+    current_inquilino: CurrentInquilino,
+    validacion_repository: ValidacionRepository,
+) -> EstadoIdentidadResponse:
+    """`GET /identidad/estado` — read-only: returns the current inquilino's
+    identidad estado (`"no_iniciado"` if no `ValidacionIdentidad` exists,
+    otherwise the most recent one's estado), so the
+    `frontend-flujo-arrendamiento` wizard can know which step it is on
+    without depending on error codes from `POST /identidad/validar`.
+
+    Never creates or modifies any record, and never calls `proveedor` —
+    same rationale as `consultar_estado_identidad`'s own docstring.
+    """
+    resultado = await consultar_estado_identidad(
+        uuid.UUID(current_inquilino.sub),
+        validacion_repository=validacion_repository,
+    )
+    return EstadoIdentidadResponse(estado=resultado.estado)

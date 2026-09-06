@@ -63,6 +63,10 @@ const config: Configuration = {
         // (runtime error on the first navigation that tries to load the remote)
         // rather than crashing the whole shell on startup.
         inmueblesApp: 'inmueblesApp@http://localhost:3001/remoteEntry.js',
+        // arrendamiento-app remote — bootstrapped in
+        // feature/frontend-flujo-arrendamiento, served on port 3002.
+        // Exposes ArrendamientoRoutes, the 4-step wizard + "Mi arrendamiento".
+        arrendamientoApp: 'arrendamientoApp@http://localhost:3002/remoteEntry.js',
       },
       shared: {
         react: { singleton: true, requiredVersion: false },

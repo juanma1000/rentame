@@ -29,3 +29,16 @@ declare module 'inmueblesApp/BusquedaPublicaRoutes' {
   const BusquedaPublicaRoutes: React.ComponentType;
   export default BusquedaPublicaRoutes;
 }
+
+/**
+ * arrendamiento-app remote (frontend-flujo-arrendamiento, task 7.2).
+ * Exposes ./ArrendamientoRoutes — the top-level route component for the
+ * 4-step arrendamiento wizard (identidad, seguro, firma) + "Mi
+ * arrendamiento", with its own internal state machine and no nested
+ * react-router routes.
+ */
+declare module 'arrendamientoApp/ArrendamientoRoutes' {
+  import type React from 'react';
+  const ArrendamientoRoutes: React.ComponentType;
+  export default ArrendamientoRoutes;
+}

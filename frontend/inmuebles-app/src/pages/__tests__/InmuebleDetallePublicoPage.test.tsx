@@ -36,8 +36,30 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
+import { AuthProvider } from '@rentame/auth';
 import type { InmueblePublicoDetalle } from '../../services/inmuebles.api';
 import InmuebleDetallePublicoPage from '../InmuebleDetallePublicoPage';
+
+// ---------------------------------------------------------------------------
+// frontend-flujo-arrendamiento (task 13.1) mocks the cross-remote
+// arrendamientoApp/ArrendamientoRoutes import — a virtual Module Federation
+// module that does not exist as a real file for Jest to resolve, same
+// convention as declaring a bare specifier remote in `remotes.d.ts`.
+// `{ virtual: true }` lets jest.mock intercept it without real resolution.
+// ---------------------------------------------------------------------------
+const mockArrendamientoRoutesRender = jest.fn();
+
+jest.mock(
+  'arrendamientoApp/ArrendamientoRoutes',
+  () => ({
+    __esModule: true,
+    default: (props: Record<string, unknown>) => {
+      mockArrendamientoRoutesRender(props);
+      return <div data-testid="mock-arrendamiento-routes" />;
+    },
+  }),
+  { virtual: true },
+);
 
 // ---------------------------------------------------------------------------
 // Mock the API service — component test, never hits the real backend.
@@ -68,6 +90,45 @@ jest.mock(
 );
 
 // ---------------------------------------------------------------------------
+// Auth helpers (frontend-flujo-arrendamiento, task 13.1) — every test now
+// renders inside a real `AuthProvider`, since the page reads `useAuth()` to
+// gate the "Solicitar arrendamiento" button by role.
+// ---------------------------------------------------------------------------
+
+function makeToken(payload: Record<string, unknown>): string {
+  const encode = (obj: unknown): string =>
+    btoa(JSON.stringify(obj))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}.test-signature`;
+}
+
+const INQUILINO_TOKEN = makeToken({ sub: 'inquilino-uuid-1', rol: 'inquilino', exp: 9_999_999_999 });
+const PROPIETARIO_TOKEN = makeToken({
+  sub: 'propietario-uuid-1',
+  rol: 'propietario',
+  exp: 9_999_999_999,
+});
+const AGENTE_TOKEN = makeToken({ sub: 'agente-uuid-1', rol: 'agente', exp: 9_999_999_999 });
+
+function renderPage(
+  props: Partial<React.ComponentProps<typeof InmuebleDetallePublicoPage>> = {},
+  token?: string,
+) {
+  if (token) {
+    localStorage.setItem('rentame_auth_token', token);
+  } else {
+    localStorage.removeItem('rentame_auth_token');
+  }
+  return render(
+    <AuthProvider>
+      <InmuebleDetallePublicoPage id={detalle.id} onVolver={jest.fn()} {...props} />
+    </AuthProvider>,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
@@ -93,12 +154,17 @@ const detalle: InmueblePublicoDetalle = {
 describe('InmuebleDetallePublicoPage (Red — HU-003)', () => {
   beforeEach(() => {
     mockObtenerPublico.mockReset();
+    mockArrendamientoRoutesRender.mockReset();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('fetches the detail via obtenerPublico(id) (no token) on mount', async () => {
     mockObtenerPublico.mockResolvedValueOnce(detalle);
 
-    render(<InmuebleDetallePublicoPage id={detalle.id} onVolver={jest.fn()} />);
+    renderPage();
 
     await screen.findByText(detalle.descripcion);
     expect(mockObtenerPublico).toHaveBeenCalledTimes(1);
@@ -108,7 +174,7 @@ describe('InmuebleDetallePublicoPage (Red — HU-003)', () => {
   it('renders all fotos, descripcion, direccion, tipo, area, habitaciones, banos and valorMensual', async () => {
     mockObtenerPublico.mockResolvedValueOnce(detalle);
 
-    render(<InmuebleDetallePublicoPage id={detalle.id} onVolver={jest.fn()} />);
+    renderPage();
 
     await screen.findByText(detalle.descripcion);
 
@@ -128,9 +194,7 @@ describe('InmuebleDetallePublicoPage (Red — HU-003)', () => {
       new MockInmueblesApiError('Inmueble no encontrado.', 404),
     );
 
-    expect(() =>
-      render(<InmuebleDetallePublicoPage id="inmueble-oculto" onVolver={jest.fn()} />),
-    ).not.toThrow();
+    expect(() => renderPage({ id: 'inmueble-oculto' })).not.toThrow();
 
     expect(
       await screen.findByText(/ya no est[aá] disponible/i),
@@ -141,7 +205,7 @@ describe('InmuebleDetallePublicoPage (Red — HU-003)', () => {
     mockObtenerPublico.mockResolvedValueOnce(detalle);
     const onVolver = jest.fn();
 
-    render(<InmuebleDetallePublicoPage id={detalle.id} onVolver={onVolver} />);
+    renderPage({ onVolver });
     await screen.findByText(detalle.descripcion);
 
     fireEvent.click(screen.getByRole('button', { name: /volver/i }));
@@ -155,11 +219,75 @@ describe('InmuebleDetallePublicoPage (Red — HU-003)', () => {
     );
     const onVolver = jest.fn();
 
-    render(<InmuebleDetallePublicoPage id="inmueble-oculto" onVolver={onVolver} />);
+    renderPage({ id: 'inmueble-oculto', onVolver });
     await screen.findByText(/ya no est[aá] disponible/i);
 
     fireEvent.click(screen.getByRole('button', { name: /volver/i }));
 
     expect(onVolver).toHaveBeenCalledTimes(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // frontend-flujo-arrendamiento (task 13.1, Red) — "Solicitar arrendamiento"
+  // entry point.
+  //
+  // Covers the "Entrada al flujo de arrendamiento desde el detalle del
+  // inmueble" requirement in
+  // `openspec/changes/frontend-flujo-arrendamiento/specs/arrendamiento-flujo-ui/spec.md`.
+  // -------------------------------------------------------------------------
+
+  it('does not show "Solicitar arrendamiento" for a propietario session', async () => {
+    mockObtenerPublico.mockResolvedValueOnce(detalle);
+
+    renderPage({}, PROPIETARIO_TOKEN);
+    await screen.findByText(detalle.descripcion);
+
+    expect(
+      screen.queryByRole('button', { name: /solicitar arrendamiento/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show "Solicitar arrendamiento" for an agente session', async () => {
+    mockObtenerPublico.mockResolvedValueOnce(detalle);
+
+    renderPage({}, AGENTE_TOKEN);
+    await screen.findByText(detalle.descripcion);
+
+    expect(
+      screen.queryByRole('button', { name: /solicitar arrendamiento/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows "Solicitar arrendamiento" without an active session, and redirects to login on click', async () => {
+    mockObtenerPublico.mockResolvedValueOnce(detalle);
+    const onIrALogin = jest.fn();
+
+    renderPage({ onIrALogin });
+    await screen.findByText(detalle.descripcion);
+
+    const boton = screen.getByRole('button', { name: /solicitar arrendamiento/i });
+    fireEvent.click(boton);
+
+    expect(onIrALogin).toHaveBeenCalledTimes(1);
+    expect(mockArrendamientoRoutesRender).not.toHaveBeenCalled();
+  });
+
+  it('navigates to the arrendamiento wizard for an inquilino session', async () => {
+    mockObtenerPublico.mockResolvedValueOnce(detalle);
+
+    renderPage({}, INQUILINO_TOKEN);
+    await screen.findByText(detalle.descripcion);
+
+    const boton = screen.getByRole('button', { name: /solicitar arrendamiento/i });
+    fireEvent.click(boton);
+
+    expect(await screen.findByTestId('mock-arrendamiento-routes')).toBeInTheDocument();
+    expect(mockArrendamientoRoutesRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inmuebleId: detalle.id,
+        direccionInmueble: detalle.direccion,
+        canonMensual: detalle.valorMensual,
+      }),
+    );
   });
 });

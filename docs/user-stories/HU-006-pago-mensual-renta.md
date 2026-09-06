@@ -6,7 +6,7 @@ quiero pagar la mensualidad de mi arriendo dentro de la plataforma mediante medi
 para cumplir con mi obligación de arrendamiento de forma digital, con trazabilidad y sin usar efectivo ni transferencias manuales fuera del sistema.
 
 ## Criterios de aceptación
-- [ ] El inquilino puede ver en su panel el monto a pagar, la fecha límite de pago y el historial de pagos anteriores. (backend: `GET /arrendamientos/{id}/pagos` devuelve el historial completo con monto/fecha límite; UI de panel es parte de un change de frontend futuro, consistente con HU-004/005/009)
+- [x] El inquilino puede ver en su panel el monto a pagar, la fecha límite de pago y el historial de pagos anteriores. (implementado: `MiArrendamientoPage` en `arrendamiento-app`, change frontend-flujo-arrendamiento)
 - [x] El sistema habilita el cobro mensual únicamente para arrendamientos activos (contrato firmado exitosamente tras HU-005). (`Pago` solo se genera para un `ArrendamientoActivo`, que a su vez solo existe si `Contrato.estado == firmado`, HU-009)
 - [x] El inquilino puede realizar el pago usando al menos un método de pago electrónico compatible con el ecosistema financiero colombiano (ej. tarjeta de crédito/débito, PSE). (vía `WompiAdapter`; método concreto lo determina Wompi en su checkout, no se restringe en el dominio)
 - [x] Al completarse el pago exitosamente, el sistema registra la transacción con fecha, monto y referencia de la pasarela de pagos.

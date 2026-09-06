@@ -58,9 +58,25 @@ class WebhookFirmaRequest(BaseModel):
     estado: str
 
 
+class EstadoFirmaResponse(BaseModel):
+    """Response body returned by `GET /firma-contrato/estado` (task 3.4 of
+    `openspec/changes/frontend-flujo-arrendamiento/tasks.md`).
+
+    `estado` is a plain `str` (not `EstadoContrato`) since it can also
+    hold the synthetic `"no_iniciado"` value produced by
+    `firma_contrato.application.consultar_estado_firma` when the account
+    has no `Contrato` yet — a value that is not a member of that enum, per
+    design.md decisión 6.
+    """
+
+    estado: str
+    arrendamiento_activo_id: uuid.UUID | None = None
+
+
 __all__ = [
     "EstadoContrato",
     "GenerarContratoRequest",
     "ContratoResponse",
     "WebhookFirmaRequest",
+    "EstadoFirmaResponse",
 ]

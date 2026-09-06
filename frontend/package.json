@@ -5,7 +5,8 @@
   "workspaces": [
     "packages/*",
     "shell",
-    "inmuebles-app"
+    "inmuebles-app",
+    "arrendamiento-app"
   ],
   "scripts": {
     "start": "npm run start -w shell",

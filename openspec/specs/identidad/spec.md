@@ -50,3 +50,16 @@ El sistema SHALL exigir que un inquilino tenga su identidad verificada (`identid
 - **GIVEN** un inquilino cuya cuenta no tiene `identidad_verificada = True`
 - **WHEN** el flujo de solicitud de arrendamiento consulta este dato antes de permitir avanzar
 - **THEN** el sistema reporta que la identidad no está verificada, sin permitir continuar
+
+### Requirement: Consulta de estado de validación de identidad
+El sistema SHALL exponer un endpoint de solo lectura que devuelva el estado de validación de identidad de la cuenta autenticada (`no_iniciado` si no existe ninguna `ValidacionIdentidad`, o el estado de la más reciente). El sistema NO SHALL crear ni modificar ningún registro al consultar este estado.
+
+#### Scenario: Cuenta sin intento de validación devuelve no_iniciado
+- **GIVEN** una cuenta de inquilino sin ninguna `ValidacionIdentidad` registrada
+- **WHEN** se consulta su estado de identidad
+- **THEN** el sistema devuelve `no_iniciado`
+
+#### Scenario: Cuenta con validación aprobada devuelve su estado real
+- **GIVEN** una cuenta de inquilino con una `ValidacionIdentidad` en estado `aprobado`
+- **WHEN** se consulta su estado de identidad
+- **THEN** el sistema devuelve `aprobado`, sin llamar al proveedor externo

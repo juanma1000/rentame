@@ -29,8 +29,21 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
+import { AuthProvider } from '@rentame/auth';
 import type { InmueblePublico, InmueblePublicoDetalle } from '../services/inmuebles.api';
 import BusquedaPublicaRoutes from '../BusquedaPublicaRoutes';
+
+// frontend-flujo-arrendamiento (task 13.1): `InmuebleDetallePublicoPage`
+// (rendered by this state machine's detalle view) now reads `useAuth()` to
+// gate the "Solicitar arrendamiento" button — every render needs a real
+// `AuthProvider` ancestor.
+function renderRoutes() {
+  return render(
+    <AuthProvider>
+      <BusquedaPublicaRoutes />
+    </AuthProvider>,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Mock the full public API surface consumed by the pages rendered inside
@@ -90,18 +103,18 @@ describe('BusquedaPublicaRoutes (Red — HU-003 state-machine navigation)', () =
 
   it('renders without throwing', () => {
     mockListarPublicos.mockResolvedValueOnce([]);
-    expect(() => render(<BusquedaPublicaRoutes />)).not.toThrow();
+    expect(() => renderRoutes()).not.toThrow();
   });
 
   it('mounts the root container with a stable test id', () => {
     mockListarPublicos.mockResolvedValueOnce([]);
-    render(<BusquedaPublicaRoutes />);
+    renderRoutes();
     expect(screen.getByTestId('busqueda-publica-routes')).toBeInTheDocument();
   });
 
   it('shows BusquedaPublicaPage (listado) as the default view', async () => {
     mockListarPublicos.mockResolvedValueOnce([INMUEBLE_PUBLICO_FIXTURE]);
-    render(<BusquedaPublicaRoutes />);
+    renderRoutes();
 
     expect(await screen.findByText(INMUEBLE_PUBLICO_FIXTURE.direccion)).toBeInTheDocument();
   });
@@ -110,7 +123,7 @@ describe('BusquedaPublicaRoutes (Red — HU-003 state-machine navigation)', () =
     mockListarPublicos.mockResolvedValueOnce([INMUEBLE_PUBLICO_FIXTURE]);
     mockObtenerPublico.mockResolvedValueOnce(INMUEBLE_DETALLE_FIXTURE);
 
-    render(<BusquedaPublicaRoutes />);
+    renderRoutes();
 
     const direccionNode = await screen.findByText(INMUEBLE_PUBLICO_FIXTURE.direccion);
     const card =
@@ -127,7 +140,7 @@ describe('BusquedaPublicaRoutes (Red — HU-003 state-machine navigation)', () =
     mockListarPublicos.mockResolvedValue([INMUEBLE_PUBLICO_FIXTURE]);
     mockObtenerPublico.mockResolvedValueOnce(INMUEBLE_DETALLE_FIXTURE);
 
-    render(<BusquedaPublicaRoutes />);
+    renderRoutes();
 
     const direccionNode = await screen.findByText(INMUEBLE_PUBLICO_FIXTURE.direccion);
     const card =

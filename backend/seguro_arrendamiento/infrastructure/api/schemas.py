@@ -42,4 +42,19 @@ class ContratarSeguroArrendamientoResponse(BaseModel):
         )
 
 
-__all__ = ["EstadoPoliza", "ContratarSeguroArrendamientoResponse"]
+class EstadoSeguroResponse(BaseModel):
+    """Response body returned by `GET /seguro-arrendamiento/estado` (task
+    2.4 of `openspec/changes/frontend-flujo-arrendamiento/tasks.md`).
+
+    `estado` is a plain `str` (not `EstadoPoliza`) since it can also hold
+    the synthetic `"no_iniciado"` value produced by
+    `seguro_arrendamiento.application.consultar_estado_seguro` when the
+    account has no `PolizaArrendamiento` yet — a value that is not a
+    member of that enum, per design.md decisión 6.
+    """
+
+    estado: str
+    prima_mensual: float | None = None
+
+
+__all__ = ["EstadoPoliza", "ContratarSeguroArrendamientoResponse", "EstadoSeguroResponse"]

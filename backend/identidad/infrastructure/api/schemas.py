@@ -38,4 +38,18 @@ class ValidarIdentidadResponse(BaseModel):
         )
 
 
-__all__ = ["EstadoValidacion", "ValidarIdentidadResponse"]
+class EstadoIdentidadResponse(BaseModel):
+    """Response body returned by `GET /identidad/estado` (task 1.4 of
+    `openspec/changes/frontend-flujo-arrendamiento/tasks.md`).
+
+    `estado` is a plain `str` (not `EstadoValidacion`) since it can also
+    hold the synthetic `"no_iniciado"` value produced by
+    `identidad.application.consultar_estado_identidad` when the account has
+    no `ValidacionIdentidad` yet — a value that is not a member of that
+    enum, per design.md decisión 6.
+    """
+
+    estado: str
+
+
+__all__ = ["EstadoValidacion", "ValidarIdentidadResponse", "EstadoIdentidadResponse"]

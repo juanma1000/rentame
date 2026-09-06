@@ -11,7 +11,7 @@ para poder avanzar en el proceso de arrendamiento de forma completamente digital
 - [x] El sistema consume una API externa de validación de identidad y devuelve un resultado: aprobado o rechazado.
 - [x] Si la validación es aprobada, el perfil del inquilino queda marcado como "Identidad verificada" (`usuario.identidad_verificada = True`) y puede continuar con el proceso de arrendamiento.
 - [x] Si la validación es rechazada, el inquilino recibe un mensaje explicativo y no puede avanzar en el proceso hasta resolverlo. (resultado y mensaje quedan expuestos por el backend; la pantalla de rechazo en UI es parte de HU-005/006)
-- [ ] Un inquilino no puede iniciar una solicitud de arrendamiento formal sin haber completado exitosamente la validación de identidad. (invariante documentada en `specs/identidad/spec.md`; el guard concreto lo aplica el change que construya HU-005/006, que aún no existe)
+- [x] Un inquilino no puede iniciar una solicitud de arrendamiento formal sin haber completado exitosamente la validación de identidad. (gate real: `seguro_arrendamiento` exige `identidad_verificada` antes de contratar, `firma_contrato` exige póliza aprobada; el wizard de `arrendamiento-app` además impide navegar al paso de seguro sin identidad aprobada)
 - [x] La validación de identidad se realiza una sola vez por cuenta de usuario; no se repite para cada solicitud de arrendamiento posterior.
 - [x] El resultado de la validación queda registrado en el sistema con fecha y estado.
 

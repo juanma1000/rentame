@@ -24,6 +24,8 @@ from agencias.domain.exceptions import (
 )
 from agencias.domain.exceptions import PropietarioInvalido as AgenciaPropietarioInvalido
 from agencias.infrastructure.api.router import router as agencias_router
+from identidad.domain.exceptions import IdentidadYaVerificada, ValidacionNoDisponible
+from identidad.infrastructure.api.router import router as identidad_router
 from inmuebles.domain.exceptions import InmuebleNoEncontrado, PropietarioInvalido
 from inmuebles.infrastructure.api.router import router as inmuebles_router
 from shared.domain.exceptions import DomainValidationError
@@ -59,6 +61,7 @@ app.add_middleware(
 app.include_router(inmuebles_router)
 app.include_router(agencias_router)
 app.include_router(usuarios_router)
+app.include_router(identidad_router)
 
 
 @app.exception_handler(DomainValidationError)
@@ -132,6 +135,23 @@ async def credenciales_invalidas_handler(
     request: Request, exc: CredencialesInvalidas
 ) -> JSONResponse:
     return JSONResponse(status_code=401, content={"detail": str(exc)})
+
+
+@app.exception_handler(IdentidadYaVerificada)
+async def identidad_ya_verificada_handler(
+    request: Request, exc: IdentidadYaVerificada
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(ValidacionNoDisponible)
+async def validacion_no_disponible_handler(
+    request: Request, exc: ValidacionNoDisponible
+) -> JSONResponse:
+    """The proveedor externo (Truora) could not be reached — a clear,
+    non-500 response per design.md's risk mitigation, so the inquilino sees
+    an explicit "reintentar" state instead of a generic server error."""
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
 @app.get("/health")

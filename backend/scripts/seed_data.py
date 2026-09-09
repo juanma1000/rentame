@@ -2,9 +2,10 @@
 
 Populates `usuario`, `agencia`, `solicitud_ingreso_agencia`,
 `relacion_agencia_propietario`, `inmueble` and `foto_inmueble` (with real
-placeholder images uploaded to MinIO) so the local environment is never
-empty. Uses the same domain factories/repositories the application uses —
-no data is inserted that the domain would reject.
+house/apartment photos downloaded from Unsplash and uploaded to MinIO) so
+the local environment is never empty. Uses the same domain
+factories/repositories the application uses — no data is inserted that the
+domain would reject.
 
 Idempotent: every seeded row's owning email ends in `@seed.rentame.test`;
 re-running first deletes every previously-seeded row (and their MinIO
@@ -17,12 +18,11 @@ Run with:
 from __future__ import annotations
 
 import asyncio
-import struct
 import uuid
-import zlib
 from decimal import Decimal
 
 import boto3
+import httpx
 from botocore.client import Config
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,10 +40,17 @@ from agencias.infrastructure.persistence.repository import (
     RelacionRepositoryPostgres,
     SolicitudIngresoRepositoryPostgres,
 )
+from firma_contrato.infrastructure.persistence.models import (
+    ArrendamientoActivoORM,
+    ContratoORM,
+)
+from identidad.infrastructure.persistence.models import ValidacionIdentidadORM
 from inmuebles.domain.foto import FotoInmueble
 from inmuebles.domain.inmueble import Inmueble
 from inmuebles.infrastructure.persistence.models import FotoInmuebleORM, InmuebleORM
 from inmuebles.infrastructure.persistence.repository import InmuebleRepositoryPostgres
+from pagos.infrastructure.persistence.models import PagoORM
+from seguro_arrendamiento.infrastructure.persistence.models import PolizaArrendamientoORM
 from shared.infrastructure.auth.jwt_handler import create_access_token
 from shared.infrastructure.database import AsyncSessionLocal
 from shared.infrastructure.settings import get_settings
@@ -54,37 +61,48 @@ SEED_EMAIL_SUFFIX = "@seed.rentame.test"
 SEED_PASSWORD = "Seed1234!"
 
 
-def _png_placeholder(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
-    """Build a valid, solid-color PNG with no external dependencies."""
-
-    def chunk(tag: bytes, data: bytes) -> bytes:
-        return (
-            struct.pack(">I", len(data))
-            + tag
-            + data
-            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-        )
-
-    signature = b"\x89PNG\r\n\x1a\n"
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    row = b"\x00" + bytes(rgb) * width
-    raw_scanlines = row * height
-    idat = zlib.compress(raw_scanlines)
-    return signature + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
+# Real (freely-licensed, no attribution required) house/apartment photos from
+# Unsplash — exteriors and interiors, mixed per inmueble instead of solid
+# color blocks. Fetched at request time via Unsplash's imgix-backed CDN.
+FOTOS_UNSPLASH = [
+    "photo-1568605114967-8130f3a36994",  # casa con jardín, noche
+    "photo-1570129477492-45c003edd2be",  # casa de campo blanca
+    "photo-1600585154340-be6161a56a0c",  # casa moderna, patio
+    "photo-1512917774080-9991f1c4c750",  # villa moderna con piscina
+    "photo-1600585154526-990dced4db0d",  # fachada moderna, noche
+    "photo-1600607687939-ce8a6c25118c",  # sala de estar
+    "photo-1600607687920-4e2a09cf159d",  # comedor/cocina
+    "photo-1560448204-e02f11c3d0e2",  # sala amplia con vista
+    "photo-1502672260266-1c1ef2d93688",  # sala pequeña apartaestudio
+]
 
 
-async def _subir_foto_placeholder(
-    s3_client, bucket: str, endpoint: str, inmueble_id: uuid.UUID, rgb: tuple[int, int, int]
+async def _descargar_foto_unsplash(http_client: httpx.AsyncClient, foto_id: str) -> bytes:
+    respuesta = await http_client.get(
+        f"https://images.unsplash.com/{foto_id}",
+        params={"w": 800, "h": 600, "fit": "crop", "q": 80},
+    )
+    respuesta.raise_for_status()
+    return respuesta.content
+
+
+async def _subir_foto(
+    s3_client,
+    http_client: httpx.AsyncClient,
+    bucket: str,
+    endpoint: str,
+    inmueble_id: uuid.UUID,
+    foto_id: str,
 ) -> tuple[str, str]:
-    """Upload a placeholder PNG and return `(storage_key, url_storage)`."""
-    storage_key = f"inmuebles/{inmueble_id}/{uuid.uuid4()}.png"
-    contenido = _png_placeholder(640, 480, rgb)
+    """Download a real Unsplash photo and upload it, returning `(storage_key, url_storage)`."""
+    storage_key = f"inmuebles/{inmueble_id}/{uuid.uuid4()}.jpg"
+    contenido = await _descargar_foto_unsplash(http_client, foto_id)
     await asyncio.to_thread(
         s3_client.put_object,
         Bucket=bucket,
         Key=storage_key,
         Body=contenido,
-        ContentType="image/png",
+        ContentType="image/jpeg",
     )
     url_storage = f"{endpoint.rstrip('/')}/{bucket}/{storage_key}"
     return storage_key, url_storage
@@ -99,6 +117,32 @@ async def _borrar_seed_previo(session: AsyncSession, s3_client, bucket: str) -> 
     ).scalars().all()
     if not usuarios_previos:
         return
+
+    await session.execute(
+        delete(PagoORM).where(
+            PagoORM.arrendamiento_activo_id.in_(
+                select(ArrendamientoActivoORM.id).where(
+                    ArrendamientoActivoORM.usuario_id.in_(usuarios_previos)
+                )
+            )
+        )
+    )
+    await session.execute(
+        delete(ArrendamientoActivoORM).where(
+            ArrendamientoActivoORM.usuario_id.in_(usuarios_previos)
+        )
+    )
+    await session.execute(delete(ContratoORM).where(ContratoORM.usuario_id.in_(usuarios_previos)))
+    await session.execute(
+        delete(PolizaArrendamientoORM).where(
+            PolizaArrendamientoORM.usuario_id.in_(usuarios_previos)
+        )
+    )
+    await session.execute(
+        delete(ValidacionIdentidadORM).where(
+            ValidacionIdentidadORM.usuario_id.in_(usuarios_previos)
+        )
+    )
 
     inmuebles_previos = (
         await session.execute(
@@ -155,7 +199,7 @@ async def seed() -> None:
     )
     bucket = settings.storage_bucket_name
 
-    async with AsyncSessionLocal() as session:
+    async with AsyncSessionLocal() as session, httpx.AsyncClient() as http_client:
         await _borrar_seed_previo(session, s3_client, bucket)
 
         usuario_repo_ids: dict[str, uuid.UUID] = {}
@@ -219,18 +263,19 @@ async def seed() -> None:
             banos: int,
             valor_mensual: str,
             descripcion: str,
-            colores: list[tuple[int, int, int]],
+            fotos_ids: list[str],
             oculto: bool = False,
         ) -> InmuebleORM:
             inmueble_id = uuid.uuid4()
             fotos = []
-            for orden, rgb in enumerate(colores, start=1):
-                storage_key, url_storage = await _subir_foto_placeholder(
+            for orden, foto_id in enumerate(fotos_ids, start=1):
+                storage_key, url_storage = await _subir_foto(
                     s3_client,
+                    http_client,
                     bucket,
                     settings.storage_public_url or settings.storage_endpoint_url,
                     inmueble_id,
-                    rgb,
+                    foto_id,
                 )
                 fotos.append(
                     FotoInmueble(
@@ -272,7 +317,7 @@ async def seed() -> None:
             banos=2,
             valor_mensual="2200000",
             descripcion="Apartamento luminoso cerca al parque, remodelado en 2024.",
-            colores=[(200, 60, 60), (60, 120, 200)],
+            fotos_ids=[FOTOS_UNSPLASH[2], FOTOS_UNSPLASH[5]],
         )
         await _crear_inmueble(
             propietario_id=ana.id,
@@ -286,7 +331,7 @@ async def seed() -> None:
             banos=1,
             valor_mensual="1350000",
             descripcion="Apartaestudio ideal para una persona, cerca a universidades.",
-            colores=[(90, 180, 90)],
+            fotos_ids=[FOTOS_UNSPLASH[8]],
         )
         await _crear_inmueble(
             propietario_id=carlos.id,
@@ -300,7 +345,7 @@ async def seed() -> None:
             banos=3,
             valor_mensual="3800000",
             descripcion="Casa de dos plantas con patio, gestionada por Inmobiliaria del Valle.",
-            colores=[(220, 170, 40), (40, 200, 200), (150, 90, 200)],
+            fotos_ids=[FOTOS_UNSPLASH[1], FOTOS_UNSPLASH[3], FOTOS_UNSPLASH[6]],
         )
         await _crear_inmueble(
             propietario_id=carlos.id,
@@ -314,7 +359,7 @@ async def seed() -> None:
             banos=1,
             valor_mensual="1600000",
             descripcion="Apartamento temporalmente despublicado por el propietario.",
-            colores=[(120, 120, 120)],
+            fotos_ids=[FOTOS_UNSPLASH[4]],
             oculto=True,
         )
 

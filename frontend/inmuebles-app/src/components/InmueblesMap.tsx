@@ -83,6 +83,12 @@ const InmueblesMap: React.FC<Props> = ({ inmuebles, onVerDetalle }) => {
         zoom={DEFAULT_ZOOM}
         style={mapStyle}
         scrollWheelZoom
+        // Smoother scroll-to-zoom: fractional zoom steps (instead of
+        // snapping a full level per tick) and more scroll distance needed
+        // per level, so the map doesn't jump abruptly on a light scroll.
+        zoomSnap={0.25}
+        zoomDelta={0.25}
+        wheelPxPerZoomLevel={120}
       >
         <TileLayer url={OSM_TILE_URL} attribution={OSM_ATTRIBUTION} />
         {conCoordenadas.map((inmueble) => (

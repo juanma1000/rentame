@@ -738,6 +738,47 @@ class TestGetInmueblePublicoDetalle:
             foto.url_storage for foto in inmueble.fotos
         ]
 
+    async def test_should_return_200_with_coordenadas_when_inmueble_has_them(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        inmueble = await _seed_inmueble(
+            db_session,
+            seed_propietario.id,
+            latitud=Decimal("6.244203"),
+            longitud=Decimal("-75.581212"),
+        )
+
+        # Act
+        response = await client.get(f"/inmuebles/publicos/{inmueble.id}")
+
+        # Assert
+        assert response.status_code == 200
+        body = response.json()
+        assert body["latitud"] == 6.244203
+        assert body["longitud"] == -75.581212
+
+    async def test_should_return_null_coordenadas_when_inmueble_has_none(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        inmueble = await _seed_inmueble(db_session, seed_propietario.id)
+
+        # Act
+        response = await client.get(f"/inmuebles/publicos/{inmueble.id}")
+
+        # Assert
+        assert response.status_code == 200
+        body = response.json()
+        assert body["latitud"] is None
+        assert body["longitud"] is None
+
     async def test_should_return_404_when_inmueble_is_oculto(
         self,
         client: httpx.AsyncClient,

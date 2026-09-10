@@ -93,6 +93,8 @@ const INMUEBLE_DETALLE_FIXTURE: InmueblePublicoDetalle = {
   valorMensual: 1_500_000,
   descripcion: 'Apartamento luminoso cerca al parque.',
   fotos: [{ urlStorage: 'https://storage.local/foto-1.jpg', orden: 0, esPrincipal: true }],
+  latitud: 6.244203,
+  longitud: -75.581212,
 };
 
 // ---------------------------------------------------------------------------

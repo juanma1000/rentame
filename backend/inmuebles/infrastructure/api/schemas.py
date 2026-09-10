@@ -172,6 +172,8 @@ class InmueblePublicoResponse(BaseModel):
     valor_mensual: float
     descripcion: str
     fotos: list[FotoPublicaResponse]
+    latitud: float | None
+    longitud: float | None
 
     @classmethod
     def from_domain(cls, inmueble: Inmueble) -> InmueblePublicoResponse:
@@ -189,6 +191,8 @@ class InmueblePublicoResponse(BaseModel):
             valor_mensual=float(inmueble.valor_mensual),
             descripcion=inmueble.descripcion,
             fotos=[FotoPublicaResponse.from_domain(foto) for foto in inmueble.fotos],
+            latitud=float(inmueble.latitud) if inmueble.latitud is not None else None,
+            longitud=float(inmueble.longitud) if inmueble.longitud is not None else None,
         )
 
 

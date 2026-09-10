@@ -89,6 +89,20 @@ jest.mock(
   { virtual: true },
 );
 
+// `InmuebleMiniMapa` (mini-mapa-detalle-inmueble) has its own dedicated test
+// suite (marker/center/zoom/scrollWheelZoom against a mocked react-leaflet)
+// — here it's mocked so this file only asserts whether the page mounts it
+// or not, never Leaflet internals. Same pattern
+// `BusquedaPublicaPage.test.tsx` uses to mock `InmueblesMap`.
+const mockInmuebleMiniMapa = jest.fn((_props: unknown) => (
+  <div data-testid="inmueble-mini-mapa-mock" />
+));
+
+jest.mock('../../components/InmuebleMiniMapa', () => ({
+  __esModule: true,
+  default: (props: unknown) => mockInmuebleMiniMapa(props),
+}));
+
 // ---------------------------------------------------------------------------
 // Auth helpers (frontend-flujo-arrendamiento, task 13.1) — every test now
 // renders inside a real `AuthProvider`, since the page reads `useAuth()` to
@@ -147,6 +161,8 @@ const detalle: InmueblePublicoDetalle = {
     { urlStorage: 'https://storage.local/foto-1.jpg', orden: 0, esPrincipal: true },
     { urlStorage: 'https://storage.local/foto-2.jpg', orden: 1, esPrincipal: false },
   ],
+  latitud: 6.244203,
+  longitud: -75.581212,
 };
 
 // ---------------------------------------------------------------------------
@@ -155,6 +171,7 @@ describe('InmuebleDetallePublicoPage (Red — HU-003)', () => {
   beforeEach(() => {
     mockObtenerPublico.mockReset();
     mockArrendamientoRoutesRender.mockReset();
+    mockInmuebleMiniMapa.mockClear();
   });
 
   afterEach(() => {
@@ -187,6 +204,30 @@ describe('InmuebleDetallePublicoPage (Red — HU-003)', () => {
 
     const images = screen.getAllByRole('img');
     expect(images).toHaveLength(detalle.fotos.length);
+  });
+
+  describe('mini mapa (mini-mapa-detalle-inmueble)', () => {
+    it('renders InmuebleMiniMapa with the detail coordinates when the inmueble has them', async () => {
+      mockObtenerPublico.mockResolvedValueOnce(detalle);
+
+      renderPage();
+      await screen.findByText(detalle.descripcion);
+
+      expect(screen.getByTestId('inmueble-mini-mapa-mock')).toBeInTheDocument();
+      expect(mockInmuebleMiniMapa).toHaveBeenCalledWith(
+        expect.objectContaining({ latitud: detalle.latitud, longitud: detalle.longitud }),
+      );
+    });
+
+    it('does not render InmuebleMiniMapa when the inmueble has no coordinates', async () => {
+      mockObtenerPublico.mockResolvedValueOnce({ ...detalle, latitud: null, longitud: null });
+
+      renderPage();
+      await screen.findByText(detalle.descripcion);
+
+      expect(screen.queryByTestId('inmueble-mini-mapa-mock')).not.toBeInTheDocument();
+      expect(mockInmuebleMiniMapa).not.toHaveBeenCalled();
+    });
   });
 
   it('shows a "no longer available" message, without crashing, when obtenerPublico rejects with a 404 InmueblesApiError', async () => {

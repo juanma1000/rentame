@@ -90,6 +90,12 @@ export interface InmueblePublicoDetalle {
   valorMensual: number;
   descripcion: string;
   fotos: Array<Pick<FotoInmueble, 'urlStorage' | 'orden' | 'esPrincipal'>>;
+  /**
+   * Geocoded coordinates (mini-mapa-detalle-inmueble), `null` when the
+   * inmueble hasn't been geocoded yet or the provider found no result.
+   */
+  latitud: number | null;
+  longitud: number | null;
 }
 
 export interface FotoInmueble {
@@ -173,6 +179,8 @@ interface RawInmueblePublicoDetalleApi {
   valor_mensual: number;
   descripcion: string;
   fotos: RawFotoPublicaApi[];
+  latitud: number | null;
+  longitud: number | null;
 }
 
 function mapInmueblePublicoFromApi(raw: RawInmueblePublicoApi): InmueblePublico {
@@ -209,6 +217,8 @@ function mapInmueblePublicoDetalleFromApi(
       orden: foto.orden,
       esPrincipal: foto.es_principal,
     })),
+    latitud: raw.latitud,
+    longitud: raw.longitud,
   };
 }
 

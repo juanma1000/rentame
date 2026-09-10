@@ -12,6 +12,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { typography } from '@rentame/design-tokens';
 import { Button } from '@rentame/ui';
 import { useAuth } from '@rentame/auth';
+import InmuebleMiniMapa from '../components/InmuebleMiniMapa';
 import { InmueblesApiError, obtenerPublico } from '../services/inmuebles.api';
 import type { InmueblePublicoDetalle } from '../services/inmuebles.api';
 
@@ -191,6 +192,9 @@ const InmuebleDetallePublicoPage: React.FC<Props> = ({
       <p data-tipo={detalle.tipo}>
         {detalle.barrio}, {detalle.ciudad}
       </p>
+      {detalle.latitud !== null && detalle.longitud !== null && (
+        <InmuebleMiniMapa latitud={detalle.latitud} longitud={detalle.longitud} />
+      )}
       <p>
         {detalle.areaM2} m² · {detalle.habitaciones} hab · {detalle.banos} baños
       </p>

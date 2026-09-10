@@ -868,6 +868,8 @@ const inmueblePublicoDetalle: InmueblePublicoDetalle = {
     { urlStorage: 'https://storage.local/foto-1.jpg', orden: 0, esPrincipal: true },
     { urlStorage: 'https://storage.local/foto-2.jpg', orden: 1, esPrincipal: false },
   ],
+  latitud: 6.244203,
+  longitud: -75.581212,
 };
 
 /** Raw snake_case backend response for `/inmuebles/publicos/{id}`. */
@@ -886,6 +888,8 @@ const rawInmueblePublicoDetalle = {
     { url_storage: 'https://storage.local/foto-1.jpg', orden: 0, es_principal: true },
     { url_storage: 'https://storage.local/foto-2.jpg', orden: 1, es_principal: false },
   ],
+  latitud: 6.244203,
+  longitud: -75.581212,
 };
 
 describe('inmuebles.api — obtenerPublico (contract, Red, HU-003)', () => {
@@ -918,6 +922,15 @@ describe('inmuebles.api — obtenerPublico (contract, Red, HU-003)', () => {
     const result = await obtenerPublico(inmueblePublicoDetalle.id);
 
     expect(result).toEqual(inmueblePublicoDetalle);
+  });
+
+  it('maps latitud/longitud to null when the backend returns them as null', async () => {
+    mockFetchResolvedOnce({ ...rawInmueblePublicoDetalle, latitud: null, longitud: null }, 200);
+
+    const result = await obtenerPublico(inmueblePublicoDetalle.id);
+
+    expect(result.latitud).toBeNull();
+    expect(result.longitud).toBeNull();
   });
 
   it('throws a typed InmueblesApiError with status 404 when the inmueble does not exist or is not disponible', async () => {

@@ -42,8 +42,13 @@ from inmuebles.application.publicar_inmueble import (
     publicar_inmueble,
 )
 from inmuebles.domain.inmueble import EstadoInmueble
+from inmuebles.domain.ports import Coordenadas
 from shared.domain.exceptions import DomainValidationError
-from tests.inmuebles.application.conftest import FakeInmuebleRepository, FakeStoragePort
+from tests.inmuebles.application.conftest import (
+    FakeGeocodingPort,
+    FakeInmuebleRepository,
+    FakeStoragePort,
+)
 
 
 def _build_foto_para_publicar(*, es_principal: bool = False) -> FotoParaPublicar:
@@ -73,6 +78,7 @@ class TestPublicarInmuebleSuccess:
         self,
         fake_repository: FakeInmuebleRepository,
         fake_storage: FakeStoragePort,
+        fake_geocoding: FakeGeocodingPort,
     ) -> None:
         # Arrange
         propietario_id = uuid4()
@@ -86,7 +92,7 @@ class TestPublicarInmuebleSuccess:
 
         # Act
         inmueble = await publicar_inmueble(
-            command, repository=fake_repository, storage=fake_storage
+            command, repository=fake_repository, storage=fake_storage, geocoding=fake_geocoding
         )
 
         # Assert
@@ -111,6 +117,7 @@ class TestPublicarInmuebleWithAgente:
         self,
         fake_repository: FakeInmuebleRepository,
         fake_storage: FakeStoragePort,
+        fake_geocoding: FakeGeocodingPort,
     ) -> None:
         # Arrange
         agente_id = uuid4()
@@ -118,7 +125,7 @@ class TestPublicarInmuebleWithAgente:
 
         # Act
         inmueble = await publicar_inmueble(
-            command, repository=fake_repository, storage=fake_storage
+            command, repository=fake_repository, storage=fake_storage, geocoding=fake_geocoding
         )
 
         # Assert
@@ -128,17 +135,69 @@ class TestPublicarInmuebleWithAgente:
         self,
         fake_repository: FakeInmuebleRepository,
         fake_storage: FakeStoragePort,
+        fake_geocoding: FakeGeocodingPort,
     ) -> None:
         # Arrange
         command = _valid_command()
 
         # Act
         inmueble = await publicar_inmueble(
-            command, repository=fake_repository, storage=fake_storage
+            command, repository=fake_repository, storage=fake_storage, geocoding=fake_geocoding
         )
 
         # Assert
         assert inmueble.agente_id is None
+
+
+class TestPublicarInmuebleGeocodificacion:
+    """vista-mapa-inmuebles-leaflet, design.md decisión 1/4: geocoding
+    happens synchronously inside `publicar_inmueble`, before persisting, and
+    never blocks creation when the provider finds nothing / fails."""
+
+    async def test_should_persist_coordenadas_when_geocoding_succeeds(
+        self,
+        fake_repository: FakeInmuebleRepository,
+        fake_storage: FakeStoragePort,
+        fake_geocoding: FakeGeocodingPort,
+    ) -> None:
+        # Arrange
+        fake_geocoding.coordenadas = Coordenadas(
+            latitud=Decimal("6.244203"), longitud=Decimal("-75.581212")
+        )
+        command = _valid_command()
+
+        # Act
+        inmueble = await publicar_inmueble(
+            command, repository=fake_repository, storage=fake_storage, geocoding=fake_geocoding
+        )
+
+        # Assert
+        assert inmueble.latitud == Decimal("6.244203")
+        assert inmueble.longitud == Decimal("-75.581212")
+        assert fake_geocoding.geocodificar_calls == [
+            (command.direccion, command.barrio, command.ciudad)
+        ]
+
+    async def test_should_create_inmueble_with_null_coordenadas_when_geocoding_returns_none(
+        self,
+        fake_repository: FakeInmuebleRepository,
+        fake_storage: FakeStoragePort,
+        fake_geocoding: FakeGeocodingPort,
+    ) -> None:
+        # Arrange
+        fake_geocoding.coordenadas = None
+        command = _valid_command()
+
+        # Act
+        inmueble = await publicar_inmueble(
+            command, repository=fake_repository, storage=fake_storage, geocoding=fake_geocoding
+        )
+
+        # Assert
+        assert inmueble.id is not None
+        assert inmueble.latitud is None
+        assert inmueble.longitud is None
+        assert len(fake_repository.guardar_calls) == 1
 
 
 class TestPublicarInmuebleValidationFailures:
@@ -146,13 +205,16 @@ class TestPublicarInmuebleValidationFailures:
         self,
         fake_repository: FakeInmuebleRepository,
         fake_storage: FakeStoragePort,
+        fake_geocoding: FakeGeocodingPort,
     ) -> None:
         # Arrange
         command = _valid_command(valor_mensual=Decimal("0"))
 
         # Act / Assert
         with pytest.raises(DomainValidationError):
-            await publicar_inmueble(command, repository=fake_repository, storage=fake_storage)
+            await publicar_inmueble(
+                command, repository=fake_repository, storage=fake_storage, geocoding=fake_geocoding
+            )
 
         assert fake_repository.guardar_calls == []
 
@@ -160,12 +222,15 @@ class TestPublicarInmuebleValidationFailures:
         self,
         fake_repository: FakeInmuebleRepository,
         fake_storage: FakeStoragePort,
+        fake_geocoding: FakeGeocodingPort,
     ) -> None:
         # Arrange
         command = _valid_command(fotos=[])
 
         # Act / Assert
         with pytest.raises(DomainValidationError):
-            await publicar_inmueble(command, repository=fake_repository, storage=fake_storage)
+            await publicar_inmueble(
+                command, repository=fake_repository, storage=fake_storage, geocoding=fake_geocoding
+            )
 
         assert fake_repository.guardar_calls == []

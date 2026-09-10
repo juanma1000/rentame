@@ -9,10 +9,13 @@
  * `BusquedaPublicaRoutes`) own navigation.
  */
 import React, { useEffect, useState } from 'react';
-import { typography } from '@rentame/design-tokens';
+import { colors, spacing, typography } from '@rentame/design-tokens';
 import { PropertyCard } from '@rentame/ui';
+import InmueblesMap from '../components/InmueblesMap';
 import { InmueblesApiError, listarPublicos } from '../services/inmuebles.api';
 import type { InmueblePublico } from '../services/inmuebles.api';
+
+type Vista = 'lista' | 'mapa';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -35,6 +38,7 @@ const BusquedaPublicaPage: React.FC<Props> = ({ onVerDetalle }) => {
   const [inmuebles, setInmuebles] = useState<InmueblePublico[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [vista, setVista] = useState<Vista>('lista');
 
   useEffect(() => {
     listarPublicos()
@@ -76,33 +80,59 @@ const BusquedaPublicaPage: React.FC<Props> = ({ onVerDetalle }) => {
   return (
     <div style={containerStyle}>
       <h1 style={titleStyle}>Inmuebles disponibles</h1>
-      <ul style={gridStyle}>
-        {inmuebles.map((inmueble) => (
-          // The click handler is placed on the `<li>` itself (not only on
-          // `PropertyCard`'s inner `onClick`) so that `fireEvent.click`
-          // fired directly on the `<li>` (as `cardFor` resolves it in the
-          // test suite) reliably triggers navigation — a click dispatched
-          // on an element only bubbles up through ancestors, not down into
-          // descendants, so a handler solely on the inner card `<div>`
-          // would never fire for a click targeted at the `<li>` wrapper.
-          <li
-            key={inmueble.id}
-            style={{ cursor: 'pointer' }}
-            onClick={() => onVerDetalle(inmueble.id)}
-          >
-            <PropertyCard
-              direccion={inmueble.direccion}
-              barrio={inmueble.barrio}
-              ciudad={inmueble.ciudad}
-              habitaciones={inmueble.habitaciones}
-              banos={inmueble.banos}
-              valorMensual={inmueble.valorMensual}
-              fotoUrl={inmueble.fotoPrincipal}
-              estado="disponible"
-            />
-          </li>
-        ))}
-      </ul>
+
+      <div role="tablist" aria-label="Vista de resultados" style={tabListStyle}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={vista === 'lista'}
+          style={tabStyle(vista === 'lista')}
+          onClick={() => setVista('lista')}
+        >
+          Lista
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={vista === 'mapa'}
+          style={tabStyle(vista === 'mapa')}
+          onClick={() => setVista('mapa')}
+        >
+          Mapa
+        </button>
+      </div>
+
+      {vista === 'lista' ? (
+        <ul style={gridStyle}>
+          {inmuebles.map((inmueble) => (
+            // The click handler is placed on the `<li>` itself (not only on
+            // `PropertyCard`'s inner `onClick`) so that `fireEvent.click`
+            // fired directly on the `<li>` (as `cardFor` resolves it in the
+            // test suite) reliably triggers navigation — a click dispatched
+            // on an element only bubbles up through ancestors, not down into
+            // descendants, so a handler solely on the inner card `<div>`
+            // would never fire for a click targeted at the `<li>` wrapper.
+            <li
+              key={inmueble.id}
+              style={{ cursor: 'pointer' }}
+              onClick={() => onVerDetalle(inmueble.id)}
+            >
+              <PropertyCard
+                direccion={inmueble.direccion}
+                barrio={inmueble.barrio}
+                ciudad={inmueble.ciudad}
+                habitaciones={inmueble.habitaciones}
+                banos={inmueble.banos}
+                valorMensual={inmueble.valorMensual}
+                fotoUrl={inmueble.fotoPrincipal}
+                estado="disponible"
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <InmueblesMap inmuebles={inmuebles} onVerDetalle={onVerDetalle} />
+      )}
     </div>
   );
 };
@@ -131,5 +161,26 @@ const titleStyle: React.CSSProperties = {
   fontFamily: typography.fontFamilyDisplay,
   fontSize: typography.fontSizeH1,
 };
+
+const tabListStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: spacing[2],
+  marginBottom: spacing[4],
+  borderBottom: `1px solid ${colors.border}`,
+};
+
+function tabStyle(selected: boolean): React.CSSProperties {
+  return {
+    border: 'none',
+    background: 'none',
+    padding: `${spacing[2]} ${spacing[3]}`,
+    cursor: 'pointer',
+    fontFamily: typography.fontFamilyBase,
+    fontSize: typography.fontSizeBody,
+    fontWeight: selected ? typography.fontWeightSemibold : typography.fontWeightRegular,
+    color: selected ? colors.primary : colors.textSecondary,
+    borderBottom: selected ? `2px solid ${colors.primary}` : '2px solid transparent',
+  };
+}
 
 export default BusquedaPublicaPage;

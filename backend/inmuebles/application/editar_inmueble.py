@@ -18,7 +18,7 @@ from decimal import Decimal
 
 from inmuebles.domain.exceptions import InmuebleNoEncontrado, PropietarioInvalido
 from inmuebles.domain.inmueble import Inmueble
-from inmuebles.domain.ports import InmuebleRepositoryPort
+from inmuebles.domain.ports import GeocodingPort, InmuebleRepositoryPort
 
 
 @dataclass
@@ -43,6 +43,7 @@ async def editar_inmueble(
     command: EditarInmuebleCommand,
     *,
     repository: InmuebleRepositoryPort,
+    geocoding: GeocodingPort,
 ) -> Inmueble:
     """Apply `command`'s data to the owned `Inmueble` and persist it.
 
@@ -52,6 +53,15 @@ async def editar_inmueble(
     `Inmueble.actualizar_datos`) when `command`'s data violates a business
     invariant (e.g. `valor_mensual <= 0`) — in any of these cases
     `repository.actualizar` is never called.
+
+    Re-geocodes via `geocoding` (vista-mapa-inmuebles-leaflet, design.md
+    decisión 3) only when `direccion`, `barrio` or `ciudad` actually
+    changed from the entity's current values — otherwise the existing
+    `latitud`/`longitud` are left untouched and `geocoding` is never
+    called, to avoid spending a request against a rate-limited provider on
+    every edit. As with `publicar_inmueble`, `geocoding.geocodificar` never
+    raises: a failed/empty lookup clears the coordinates to `None` rather
+    than blocking the edit.
     """
     inmueble = await repository.obtener_por_id(command.inmueble_id)
     if inmueble is None:
@@ -61,6 +71,12 @@ async def editar_inmueble(
             f"Propietario {command.propietario_id} no es dueño del inmueble "
             f"{command.inmueble_id}"
         )
+
+    ubicacion_cambio = (
+        inmueble.direccion != command.direccion
+        or inmueble.barrio != command.barrio
+        or inmueble.ciudad != command.ciudad
+    )
 
     inmueble.actualizar_datos(
         direccion=command.direccion,
@@ -73,5 +89,14 @@ async def editar_inmueble(
         valor_mensual=command.valor_mensual,
         descripcion=command.descripcion,
     )
+
+    if ubicacion_cambio:
+        coordenadas = await geocoding.geocodificar(
+            direccion=command.direccion, barrio=command.barrio, ciudad=command.ciudad
+        )
+        inmueble.actualizar_coordenadas(
+            coordenadas.latitud if coordenadas else None,
+            coordenadas.longitud if coordenadas else None,
+        )
 
     return await repository.actualizar(inmueble)

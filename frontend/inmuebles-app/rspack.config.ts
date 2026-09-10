@@ -33,6 +33,13 @@ const config: Configuration = {
         test: /\.css$/,
         type: 'css',
       },
+      {
+        // Leaflet's default marker icons are imported as plain URLs
+        // (`src/components/leafletIcon.ts`) — emitted as static assets so
+        // the resolved URL points at the actual file, not the JS bundle.
+        test: /\.(png|jpe?g|svg)$/,
+        type: 'asset/resource',
+      },
     ],
   },
   resolve: {

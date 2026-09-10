@@ -75,6 +75,11 @@ services:
       STORAGE_BUCKET_NAME: ${STORAGE_BUCKET_NAME:-inmuebles}
       STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
       MAX_FOTOS_INMUEBLE: ${MAX_FOTOS_INMUEBLE:-10}
+      # Unlike identidad/pagos/seguro_arrendamiento's key-gated providers
+      # (left at their "fake" default), Nominatim needs no API key/secret,
+      # so local dev defaults to the real provider — geocoding actually
+      # happens against Nominatim/OpenStreetMap out of the box.
+      INMUEBLES_GEOCODING_PROVEEDOR: ${INMUEBLES_GEOCODING_PROVEEDOR:-nominatim}
       CORS_ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost:3001","http://localhost:3002"]'
     ports:
       - "8000:8000"

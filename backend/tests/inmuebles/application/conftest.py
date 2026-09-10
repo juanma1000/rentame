@@ -21,6 +21,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from inmuebles.domain.inmueble import EstadoInmueble, Inmueble
+from inmuebles.domain.ports import Coordenadas
 
 
 @dataclass
@@ -116,6 +117,26 @@ class FakeStoragePort:
         return f"https://fake-storage.test/{storage_key}"
 
 
+@dataclass
+class FakeGeocodingPort:
+    """In-memory stand-in for `GeocodingPort` (vista-mapa-inmuebles-leaflet).
+
+    Returns `coordenadas` (`None` by default) regardless of the address
+    given, and records every call so tests can assert whether
+    `publicar_inmueble`/`editar_inmueble` invoked it or not (design.md
+    decisión 3: `editar_inmueble` must skip this call when the location
+    fields didn't change)."""
+
+    coordenadas: Coordenadas | None = None
+    geocodificar_calls: list[tuple[str, str, str]] = field(default_factory=list)
+
+    async def geocodificar(
+        self, *, direccion: str, barrio: str, ciudad: str
+    ) -> Coordenadas | None:
+        self.geocodificar_calls.append((direccion, barrio, ciudad))
+        return self.coordenadas
+
+
 @pytest.fixture
 def fake_repository() -> FakeInmuebleRepository:
     return FakeInmuebleRepository()
@@ -124,3 +145,8 @@ def fake_repository() -> FakeInmuebleRepository:
 @pytest.fixture
 def fake_storage() -> FakeStoragePort:
     return FakeStoragePort()
+
+
+@pytest.fixture
+def fake_geocoding() -> FakeGeocodingPort:
+    return FakeGeocodingPort()

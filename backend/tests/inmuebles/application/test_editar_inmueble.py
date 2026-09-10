@@ -37,8 +37,9 @@ from inmuebles.application.editar_inmueble import EditarInmuebleCommand, editar_
 from inmuebles.domain.exceptions import PropietarioInvalido
 from inmuebles.domain.foto import FotoInmueble
 from inmuebles.domain.inmueble import Inmueble
+from inmuebles.domain.ports import Coordenadas
 from shared.domain.exceptions import DomainValidationError
-from tests.inmuebles.application.conftest import FakeInmuebleRepository
+from tests.inmuebles.application.conftest import FakeGeocodingPort, FakeInmuebleRepository
 
 
 def _build_existing_inmueble(*, propietario_id: object | None = None) -> Inmueble:
@@ -82,7 +83,7 @@ def _edit_command(*, inmueble_id: object, propietario_id: object) -> EditarInmue
 
 class TestEditarInmuebleWhenPropietarioOwnsIt:
     async def test_should_update_inmueble_data_when_propietario_id_matches_owner(
-        self, fake_repository: FakeInmuebleRepository
+        self, fake_repository: FakeInmuebleRepository, fake_geocoding: FakeGeocodingPort
     ) -> None:
         # Arrange
         propietario_id = uuid4()
@@ -91,7 +92,9 @@ class TestEditarInmuebleWhenPropietarioOwnsIt:
         command = _edit_command(inmueble_id=existing.id, propietario_id=propietario_id)
 
         # Act
-        updated = await editar_inmueble(command, repository=fake_repository)
+        updated = await editar_inmueble(
+            command, repository=fake_repository, geocoding=fake_geocoding
+        )
 
         # Assert
         assert updated.id == existing.id
@@ -108,7 +111,7 @@ class TestEditarInmuebleWhenPropietarioOwnsIt:
 
 class TestEditarInmuebleWhenPropietarioDoesNotOwnIt:
     async def test_should_raise_propietario_invalido_and_not_persist_when_propietario_mismatches(
-        self, fake_repository: FakeInmuebleRepository
+        self, fake_repository: FakeInmuebleRepository, fake_geocoding: FakeGeocodingPort
     ) -> None:
         # Arrange
         owner_id = uuid4()
@@ -120,7 +123,7 @@ class TestEditarInmuebleWhenPropietarioDoesNotOwnIt:
 
         # Act / Assert
         with pytest.raises(PropietarioInvalido):
-            await editar_inmueble(command, repository=fake_repository)
+            await editar_inmueble(command, repository=fake_repository, geocoding=fake_geocoding)
 
         assert fake_repository.actualizar_calls == []
         stored = await fake_repository.obtener_por_id(existing.id)
@@ -135,7 +138,7 @@ class TestEditarInmuebleDoesNotChangeAgenteId:
     propietario, or any other authorized caller)."""
 
     async def test_should_not_change_agente_id_when_editing_inmueble_published_by_an_agente(
-        self, fake_repository: FakeInmuebleRepository
+        self, fake_repository: FakeInmuebleRepository, fake_geocoding: FakeGeocodingPort
     ) -> None:
         # Arrange
         propietario_id = uuid4()
@@ -147,13 +150,15 @@ class TestEditarInmuebleDoesNotChangeAgenteId:
         command = _edit_command(inmueble_id=existing.id, propietario_id=propietario_id)
 
         # Act
-        updated = await editar_inmueble(command, repository=fake_repository)
+        updated = await editar_inmueble(
+            command, repository=fake_repository, geocoding=fake_geocoding
+        )
 
         # Assert
         assert updated.agente_id == original_agente_id
 
     async def test_should_leave_agente_id_none_when_inmueble_was_never_published_by_an_agente(
-        self, fake_repository: FakeInmuebleRepository
+        self, fake_repository: FakeInmuebleRepository, fake_geocoding: FakeGeocodingPort
     ) -> None:
         # Arrange
         propietario_id = uuid4()
@@ -163,10 +168,72 @@ class TestEditarInmuebleDoesNotChangeAgenteId:
         command = _edit_command(inmueble_id=existing.id, propietario_id=propietario_id)
 
         # Act
-        updated = await editar_inmueble(command, repository=fake_repository)
+        updated = await editar_inmueble(
+            command, repository=fake_repository, geocoding=fake_geocoding
+        )
 
         # Assert
         assert updated.agente_id is None
+
+
+class TestEditarInmuebleGeocodificacion:
+    """vista-mapa-inmuebles-leaflet, design.md decisión 3: `editar_inmueble`
+    only re-geocodes when `direccion`/`barrio`/`ciudad` actually changed —
+    otherwise it conserves the existing coordinates without spending a call
+    against Nominatim's shared rate limit."""
+
+    async def test_should_geocode_and_update_coordenadas_when_direccion_changes(
+        self, fake_repository: FakeInmuebleRepository, fake_geocoding: FakeGeocodingPort
+    ) -> None:
+        # Arrange
+        propietario_id = uuid4()
+        existing = _build_existing_inmueble(propietario_id=propietario_id)
+        existing.actualizar_coordenadas(Decimal("6.0"), Decimal("-75.0"))
+        existing = fake_repository.seed(existing)
+        assert existing.id is not None
+        fake_geocoding.coordenadas = Coordenadas(
+            latitud=Decimal("6.244203"), longitud=Decimal("-75.581212")
+        )
+        command = _edit_command(inmueble_id=existing.id, propietario_id=propietario_id)
+
+        # Act
+        updated = await editar_inmueble(
+            command, repository=fake_repository, geocoding=fake_geocoding
+        )
+
+        # Assert
+        assert fake_geocoding.geocodificar_calls == [
+            (command.direccion, command.barrio, command.ciudad)
+        ]
+        assert updated.latitud == Decimal("6.244203")
+        assert updated.longitud == Decimal("-75.581212")
+
+    async def test_should_not_geocode_and_keep_coordenadas_when_ubicacion_does_not_change(
+        self, fake_repository: FakeInmuebleRepository, fake_geocoding: FakeGeocodingPort
+    ) -> None:
+        # Arrange
+        propietario_id = uuid4()
+        existing = _build_existing_inmueble(propietario_id=propietario_id)
+        existing.actualizar_coordenadas(Decimal("6.0"), Decimal("-75.0"))
+        existing = fake_repository.seed(existing)
+        assert existing.id is not None
+        command = _edit_command(
+            inmueble_id=existing.id,
+            propietario_id=propietario_id,
+        )
+        command.direccion = existing.direccion
+        command.barrio = existing.barrio
+        command.ciudad = existing.ciudad
+
+        # Act
+        updated = await editar_inmueble(
+            command, repository=fake_repository, geocoding=fake_geocoding
+        )
+
+        # Assert
+        assert fake_geocoding.geocodificar_calls == []
+        assert updated.latitud == Decimal("6.0")
+        assert updated.longitud == Decimal("-75.0")
 
 
 class TestEditarInmuebleWhenDataViolatesInvariants:
@@ -178,7 +245,7 @@ class TestEditarInmuebleWhenDataViolatesInvariants:
     case."""
 
     async def test_should_raise_domain_validation_error_and_not_persist_when_valor_mensual_is_zero(
-        self, fake_repository: FakeInmuebleRepository
+        self, fake_repository: FakeInmuebleRepository, fake_geocoding: FakeGeocodingPort
     ) -> None:
         # Arrange
         propietario_id = uuid4()
@@ -190,7 +257,7 @@ class TestEditarInmuebleWhenDataViolatesInvariants:
 
         # Act / Assert
         with pytest.raises(DomainValidationError):
-            await editar_inmueble(command, repository=fake_repository)
+            await editar_inmueble(command, repository=fake_repository, geocoding=fake_geocoding)
 
         assert fake_repository.actualizar_calls == []
         stored = await fake_repository.obtener_por_id(existing.id)

@@ -53,6 +53,8 @@ class InmuebleRepositoryPostgres:
         modelo.valor_mensual = inmueble.valor_mensual
         modelo.descripcion = inmueble.descripcion
         modelo.estado = inmueble.estado.value
+        modelo.latitud = inmueble.latitud
+        modelo.longitud = inmueble.longitud
 
         await self._session.flush()
         return self._a_dominio(modelo)
@@ -124,6 +126,8 @@ class InmuebleRepositoryPostgres:
             valor_mensual=inmueble.valor_mensual,
             descripcion=inmueble.descripcion,
             estado=inmueble.estado.value,
+            latitud=inmueble.latitud,
+            longitud=inmueble.longitud,
             fotos=[
                 FotoInmuebleORM(
                     url_storage=foto.url_storage,
@@ -152,6 +156,8 @@ class InmuebleRepositoryPostgres:
             banos=modelo.banos,
             valor_mensual=modelo.valor_mensual,
             descripcion=modelo.descripcion,
+            latitud=modelo.latitud,
+            longitud=modelo.longitud,
             fotos=[
                 FotoInmueble(
                     url_storage=foto.url_storage,

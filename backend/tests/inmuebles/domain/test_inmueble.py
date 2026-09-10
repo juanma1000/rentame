@@ -251,6 +251,59 @@ class TestInmuebleActualizarDatos:
         assert self.inmueble.descripcion == nuevos_datos["descripcion"]
 
 
+class TestInmuebleCrearCoordenadas:
+    """`latitud`/`longitud` (vista-mapa-inmuebles-leaflet) are optional
+    creation-time data, populated later by the geocoding step in
+    `publicar_inmueble`/`editar_inmueble` — the domain itself never
+    geocodifica, it only stores whatever it's given (or `None`)."""
+
+    def test_should_default_latitud_and_longitud_to_none_when_not_provided(self) -> None:
+        # Arrange
+        kwargs = _valid_inmueble_kwargs()
+
+        # Act
+        inmueble = Inmueble.crear(**kwargs)
+
+        # Assert
+        assert inmueble.latitud is None
+        assert inmueble.longitud is None
+
+    def test_should_accept_latitud_and_longitud_when_provided(self) -> None:
+        # Arrange
+        kwargs = _valid_inmueble_kwargs(latitud=Decimal("6.244203"), longitud=Decimal("-75.581212"))
+
+        # Act
+        inmueble = Inmueble.crear(**kwargs)
+
+        # Assert
+        assert inmueble.latitud == Decimal("6.244203")
+        assert inmueble.longitud == Decimal("-75.581212")
+
+
+class TestInmuebleActualizarCoordenadas:
+    def setup_method(self) -> None:
+        self.inmueble = Inmueble.crear(**_valid_inmueble_kwargs())
+
+    def test_should_set_latitud_and_longitud_when_coordenadas_are_given(self) -> None:
+        # Act
+        self.inmueble.actualizar_coordenadas(Decimal("6.244203"), Decimal("-75.581212"))
+
+        # Assert
+        assert self.inmueble.latitud == Decimal("6.244203")
+        assert self.inmueble.longitud == Decimal("-75.581212")
+
+    def test_should_set_latitud_and_longitud_to_none_when_none_is_given(self) -> None:
+        # Arrange
+        self.inmueble.actualizar_coordenadas(Decimal("6.244203"), Decimal("-75.581212"))
+
+        # Act
+        self.inmueble.actualizar_coordenadas(None, None)
+
+        # Assert
+        assert self.inmueble.latitud is None
+        assert self.inmueble.longitud is None
+
+
 class TestInmuebleTransicionesEstado:
     def setup_method(self) -> None:
         self.inmueble = Inmueble.crear(**_valid_inmueble_kwargs())

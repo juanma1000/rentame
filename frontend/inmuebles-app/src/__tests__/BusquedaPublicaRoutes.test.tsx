@@ -77,6 +77,8 @@ const INMUEBLE_PUBLICO_FIXTURE: InmueblePublico = {
   valorMensual: 1_500_000,
   habitaciones: 2,
   banos: 1,
+  latitud: 6.244203,
+  longitud: -75.581212,
 };
 
 const INMUEBLE_DETALLE_FIXTURE: InmueblePublicoDetalle = {

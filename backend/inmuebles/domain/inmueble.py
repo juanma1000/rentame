@@ -68,6 +68,8 @@ class Inmueble:
     estado: EstadoInmueble
     id: uuid.UUID | None = None
     agente_id: uuid.UUID | None = None
+    latitud: Decimal | None = None
+    longitud: Decimal | None = None
 
     @classmethod
     def crear(
@@ -85,6 +87,8 @@ class Inmueble:
         descripcion: str,
         fotos: list[FotoInmueble],
         agente_id: uuid.UUID | None = None,
+        latitud: Decimal | None = None,
+        longitud: Decimal | None = None,
     ) -> Inmueble:
         """Validate business invariants and create a new listing.
 
@@ -119,6 +123,8 @@ class Inmueble:
             fotos=fotos,
             estado=EstadoInmueble.DISPONIBLE,
             agente_id=agente_id,
+            latitud=latitud,
+            longitud=longitud,
         )
 
     @staticmethod
@@ -168,6 +174,17 @@ class Inmueble:
         self.banos = banos
         self.valor_mensual = valor_mensual
         self.descripcion = descripcion
+
+    def actualizar_coordenadas(
+        self, latitud: Decimal | None, longitud: Decimal | None
+    ) -> None:
+        """Set (or clear, when both are `None`) the geocoded coordinates of
+        this listing (vista-mapa-inmuebles-leaflet). Separate from
+        `actualizar_datos` because coordinates are populated by an
+        infrastructure-level geocoding step, not by user-submitted form
+        data, and carry no business invariant of their own."""
+        self.latitud = latitud
+        self.longitud = longitud
 
     def despublicar(self) -> None:
         """Hide the listing without deleting it (spec.md: "Despublicación

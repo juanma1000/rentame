@@ -18,6 +18,8 @@ follow as precedent, so this follows the interface shape implied by
 `design.md`'s sequence diagram ("Publicación de inmueble") directly.
 """
 
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
@@ -70,4 +72,35 @@ class StoragePort(Protocol):
 
     def construir_url(self, storage_key: str) -> str:
         """Build the resolvable `url_storage` for a given `storage_key`."""
+        ...
+
+
+@dataclass(frozen=True)
+class Coordenadas:
+    """Geographic coordinates returned by a `GeocodingPort`
+    (vista-mapa-inmuebles-leaflet)."""
+
+    latitud: Decimal
+    longitud: Decimal
+
+
+class GeocodingPort(Protocol):
+    """Address-to-coordinates lookup used to place an `Inmueble` on the
+    public map (vista-mapa-inmuebles-leaflet, design.md decisión 4).
+
+    Unlike `StoragePort` or the external providers of other domains
+    (`TruoraAdapter`, Wompi, Sura), this port's contract is deliberately
+    non-throwing: geocoding is a secondary, non-blocking capability, so a
+    provider timeout, error response, or "no result found" is expressed as
+    `None`, never as a raised exception. This pushes the "never blocks
+    publication" rule into the port's contract instead of relying on every
+    caller (`publicar_inmueble`, `editar_inmueble`) to wrap the call in its
+    own try/except.
+    """
+
+    async def geocodificar(
+        self, *, direccion: str, barrio: str, ciudad: str
+    ) -> Coordenadas | None:
+        """Return coordinates for the given address, or `None` when the
+        provider fails, times out, or finds no result."""
         ...

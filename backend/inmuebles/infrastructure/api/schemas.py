@@ -110,6 +110,8 @@ class InmueblePublicoListItemResponse(BaseModel):
     valor_mensual: float
     habitaciones: int
     banos: int
+    latitud: float | None
+    longitud: float | None
 
     @classmethod
     def from_domain(cls, inmueble: Inmueble) -> InmueblePublicoListItemResponse:
@@ -129,6 +131,8 @@ class InmueblePublicoListItemResponse(BaseModel):
             valor_mensual=float(inmueble.valor_mensual),
             habitaciones=inmueble.habitaciones,
             banos=inmueble.banos,
+            latitud=float(inmueble.latitud) if inmueble.latitud is not None else None,
+            longitud=float(inmueble.longitud) if inmueble.longitud is not None else None,
         )
 
 

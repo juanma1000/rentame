@@ -29,7 +29,7 @@ from decimal import Decimal
 
 from inmuebles.domain.foto import FotoInmueble
 from inmuebles.domain.inmueble import MAX_FOTOS_INMUEBLE, MIN_FOTOS_INMUEBLE, Inmueble
-from inmuebles.domain.ports import InmuebleRepositoryPort, StoragePort
+from inmuebles.domain.ports import GeocodingPort, InmuebleRepositoryPort, StoragePort
 from shared.domain.exceptions import DomainValidationError
 
 
@@ -70,6 +70,7 @@ async def publicar_inmueble(
     *,
     repository: InmuebleRepositoryPort,
     storage: StoragePort,
+    geocoding: GeocodingPort,
 ) -> Inmueble:
     """Upload `command.fotos`, create the `Inmueble` and persist it.
 
@@ -79,6 +80,12 @@ async def publicar_inmueble(
     which still re-validates the count too). In either case no photo upload
     that hasn't already happened is attempted, and `repository.guardar` is
     never called.
+
+    Geocodes `command.direccion`/`barrio`/`ciudad` via `geocoding` before
+    creating the `Inmueble` (vista-mapa-inmuebles-leaflet, design.md
+    decisión 1/4). `GeocodingPort.geocodificar` never raises — a failed or
+    empty lookup resolves to `None`, and the inmueble is still created with
+    `latitud`/`longitud` unset; geocoding failure never blocks publication.
     """
     if not (MIN_FOTOS_INMUEBLE <= len(command.fotos) <= MAX_FOTOS_INMUEBLE):
         raise DomainValidationError(
@@ -99,6 +106,10 @@ async def publicar_inmueble(
             )
         )
 
+    coordenadas = await geocoding.geocodificar(
+        direccion=command.direccion, barrio=command.barrio, ciudad=command.ciudad
+    )
+
     inmueble = Inmueble.crear(
         propietario_id=command.propietario_id,
         direccion=command.direccion,
@@ -112,6 +123,8 @@ async def publicar_inmueble(
         descripcion=command.descripcion,
         fotos=fotos,
         agente_id=command.agente_id,
+        latitud=coordenadas.latitud if coordenadas else None,
+        longitud=coordenadas.longitud if coordenadas else None,
     )
 
     return await repository.guardar(inmueble)

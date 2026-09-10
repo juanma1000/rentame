@@ -641,7 +641,11 @@ class TestGetInmueblesPublicos:
     ) -> None:
         # Arrange
         disponible = await _seed_inmueble(
-            db_session, seed_propietario.id, direccion="Calle Disponible # 1-01"
+            db_session,
+            seed_propietario.id,
+            direccion="Calle Disponible # 1-01",
+            latitud=Decimal("6.244203"),
+            longitud=Decimal("-75.581212"),
         )
         await _seed_oculto(db_session, seed_propietario.id, direccion="Calle Oculta # 2-02")
         await _seed_no_disponible(
@@ -663,8 +667,28 @@ class TestGetInmueblesPublicos:
         assert item["habitaciones"] == disponible.habitaciones
         assert item["banos"] == disponible.banos
         assert item["foto_principal"] == disponible.fotos[0].url_storage
+        assert item["latitud"] == 6.244203
+        assert item["longitud"] == -75.581212
         assert "estado" not in item
         assert "propietario_id" not in item
+
+    async def test_should_return_null_coordenadas_when_inmueble_has_none(
+        self,
+        client: httpx.AsyncClient,
+        db_session: AsyncSession,
+        seed_propietario: UsuarioORM,
+    ) -> None:
+        # Arrange
+        await _seed_inmueble(db_session, seed_propietario.id)
+
+        # Act
+        response = await client.get("/inmuebles/publicos")
+
+        # Assert
+        assert response.status_code == 200
+        item = response.json()[0]
+        assert item["latitud"] is None
+        assert item["longitud"] is None
 
     async def test_should_return_200_with_empty_list_when_no_inmueble_is_disponible(
         self,

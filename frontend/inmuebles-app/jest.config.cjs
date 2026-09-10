@@ -12,9 +12,10 @@ module.exports = {
     // them to CommonJS so they work in the jsdom test environment.
     '^.+\\.(ts|tsx|js|mjs)$': '<rootDir>/jest-transform.cjs',
   },
-  // By default Jest skips all node_modules. react-router v8 is pure ESM and
-  // must be transformed to CJS for the jsdom test environment.
-  transformIgnorePatterns: ['/node_modules/(?!(react-router)/)'],
+  // By default Jest skips all node_modules. react-router v8, react-leaflet
+  // and its @react-leaflet/core dependency are pure ESM and must be
+  // transformed to CJS for the jsdom test environment.
+  transformIgnorePatterns: ['/node_modules/(?!(react-router|react-leaflet|@react-leaflet/core)/)'],
   setupFilesAfterEnv: ['@testing-library/jest-dom'],
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.{ts,tsx}'],
   moduleNameMapper: {
@@ -25,5 +26,8 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     // CSS is not executable JS — stub it out (see jest.style-mock.cjs).
     '\\.css$': '<rootDir>/jest.style-mock.cjs',
+    // Image assets resolve to a real URL only under Rspack's bundler — stub
+    // them out under Jest (see jest.asset-mock.cjs).
+    '\\.(png|jpe?g|svg)$': '<rootDir>/jest.asset-mock.cjs',
   },
 };

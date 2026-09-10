@@ -61,6 +61,13 @@ export interface InmueblePublico {
   valorMensual: number;
   habitaciones: number;
   banos: number;
+  /**
+   * Geocoded coordinates (vista-mapa-inmuebles-leaflet), `null` when the
+   * inmueble hasn't been geocoded yet or the provider found no result —
+   * such an inmueble is simply omitted from the map view, never an error.
+   */
+  latitud: number | null;
+  longitud: number | null;
 }
 
 /**
@@ -144,6 +151,8 @@ interface RawInmueblePublicoApi {
   valor_mensual: number;
   habitaciones: number;
   banos: number;
+  latitud: number | null;
+  longitud: number | null;
 }
 
 interface RawFotoPublicaApi {
@@ -176,6 +185,8 @@ function mapInmueblePublicoFromApi(raw: RawInmueblePublicoApi): InmueblePublico 
     valorMensual: raw.valor_mensual,
     habitaciones: raw.habitaciones,
     banos: raw.banos,
+    latitud: raw.latitud,
+    longitud: raw.longitud,
   };
 }
 

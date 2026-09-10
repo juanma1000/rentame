@@ -54,6 +54,8 @@ class InmuebleORM(Base):
     valor_mensual: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     descripcion: Mapped[str] = mapped_column(Text, nullable=False)
     estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    latitud: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

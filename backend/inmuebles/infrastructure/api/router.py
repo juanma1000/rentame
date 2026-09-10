@@ -68,6 +68,7 @@ from inmuebles.application.publicar_inmueble import (
 )
 from inmuebles.domain.exceptions import InmuebleNoEncontrado
 from inmuebles.domain.inmueble import EstadoInmueble
+from inmuebles.domain.ports import GeocodingPort
 from inmuebles.infrastructure.api.schemas import (
     CambiarDisponibilidadRequest,
     InmuebleEditRequest,
@@ -77,6 +78,7 @@ from inmuebles.infrastructure.api.schemas import (
 )
 from inmuebles.infrastructure.external.s3_storage_adapter import S3StorageAdapter
 from inmuebles.infrastructure.persistence.repository import InmuebleRepositoryPostgres
+from inmuebles.infrastructure.proveedor import get_geocoding_provider
 from shared.infrastructure.auth.dependencies import (
     ROL_AGENTE,
     ROL_PROPIETARIO,
@@ -131,6 +133,7 @@ CurrentAgente = Annotated[TokenPayload, Depends(get_current_agente)]
 CurrentPublicador = Annotated[TokenPayload, Depends(get_current_publicador)]
 Repository = Annotated[InmuebleRepositoryPostgres, Depends(get_inmueble_repository)]
 Storage = Annotated[S3StorageAdapter, Depends(get_storage_adapter)]
+Geocoding = Annotated[GeocodingPort, Depends(get_geocoding_provider)]
 RelacionRepository = Annotated[RelacionRepositoryPostgres, Depends(get_relacion_repository)]
 UsuarioAgenciaRepository = Annotated[
     UsuarioAgenciaRepositoryPostgres, Depends(get_usuario_agencia_repository)
@@ -188,6 +191,7 @@ async def crear_inmueble(
     current_publicador: CurrentPublicador,
     repository: Repository,
     storage: Storage,
+    geocoding: Geocoding,
     relacion_repository: RelacionRepository,
     usuario_repository: UsuarioAgenciaRepository,
     direccion: Annotated[str, Form()],
@@ -256,7 +260,9 @@ async def crear_inmueble(
         agente_id=agente_id,
     )
 
-    inmueble = await publicar_inmueble(command, repository=repository, storage=storage)
+    inmueble = await publicar_inmueble(
+        command, repository=repository, storage=storage, geocoding=geocoding
+    )
     return InmuebleResponse.from_domain(inmueble)
 
 
@@ -304,6 +310,7 @@ async def editar_inmueble_endpoint(
     payload: InmuebleEditRequest,
     current_publicador: CurrentPublicador,
     repository: Repository,
+    geocoding: Geocoding,
     relacion_repository: RelacionRepository,
     usuario_repository: UsuarioAgenciaRepository,
 ) -> InmuebleResponse:
@@ -339,7 +346,7 @@ async def editar_inmueble_endpoint(
         descripcion=payload.descripcion,
     )
 
-    inmueble = await editar_inmueble(command, repository=repository)
+    inmueble = await editar_inmueble(command, repository=repository, geocoding=geocoding)
     return InmuebleResponse.from_domain(inmueble)
 
 

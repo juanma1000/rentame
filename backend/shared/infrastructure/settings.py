@@ -39,6 +39,14 @@ class Settings(BaseSettings):
 
     max_fotos_inmueble: int = 10
 
+    # `inmuebles` domain (`openspec/changes/vista-mapa-inmuebles-leaflet`):
+    # selects the `GeocodingPort` adapter (`inmuebles/infrastructure/
+    # proveedor.py`). `"fake"` (default) is safe in every environment;
+    # `"nominatim"` calls the real, key-less Nominatim/OpenStreetMap API
+    # (design.md decisión 2: no API key needed, unlike the other providers
+    # below).
+    inmuebles_geocoding_proveedor: str = "fake"
+
     # `identidad` domain (`openspec/changes/validacion-identidad-inquilino`):
     # selects the `ProveedorValidacionIdentidadPort` adapter
     # (`identidad/infrastructure/proveedor.py`). `"fake"` (default) is safe

@@ -747,6 +747,8 @@ const inmueblePublicoConFoto: InmueblePublico = {
   valorMensual: 1_500_000,
   habitaciones: 2,
   banos: 1,
+  latitud: 6.244203,
+  longitud: -75.581212,
 };
 
 const inmueblePublicoSinFoto: InmueblePublico = {
@@ -758,6 +760,8 @@ const inmueblePublicoSinFoto: InmueblePublico = {
   valorMensual: 2_000_000,
   habitaciones: 3,
   banos: 2,
+  latitud: null,
+  longitud: null,
 };
 
 /** Raw snake_case backend response for the `/inmuebles/publicos` listing. */
@@ -770,6 +774,8 @@ const rawInmueblePublicoConFoto = {
   valor_mensual: 1_500_000,
   habitaciones: 2,
   banos: 1,
+  latitud: 6.244203,
+  longitud: -75.581212,
 };
 
 const rawInmueblePublicoSinFoto = {
@@ -781,6 +787,8 @@ const rawInmueblePublicoSinFoto = {
   valor_mensual: 2_000_000,
   habitaciones: 3,
   banos: 2,
+  latitud: null,
+  longitud: null,
 };
 
 describe('inmuebles.api — listarPublicos (contract, Red, HU-003)', () => {

@@ -56,6 +56,18 @@ jest.mock(
   { virtual: true },
 );
 
+// `InmueblesMap` (vista-mapa-inmuebles-leaflet) has its own dedicated test
+// suite covering markers/popup/centering against react-leaflet — here it's
+// mocked so this file only asserts the tab toggle wiring (which inmuebles
+// it's given, that clicking a marker calls `onVerDetalle`), never Leaflet
+// internals.
+const mockInmueblesMap = jest.fn((_props: unknown) => <div data-testid="inmuebles-map-mock" />);
+
+jest.mock('../../components/InmueblesMap', () => ({
+  __esModule: true,
+  default: (props: unknown) => mockInmueblesMap(props),
+}));
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -73,6 +85,8 @@ function makeInmueblePublico(overrides: Partial<InmueblePublico>): InmueblePubli
     valorMensual: 1_500_000,
     habitaciones: 4,
     banos: 6,
+    latitud: 6.244203,
+    longitud: -75.581212,
     ...overrides,
   };
 }
@@ -151,6 +165,54 @@ describe('BusquedaPublicaPage (Red — HU-003)', () => {
     expect(
       await screen.findByText(/no hay inmuebles disponibles/i),
     ).toBeInTheDocument();
+  });
+
+  describe('toggle Lista/Mapa (vista-mapa-inmuebles-leaflet)', () => {
+    beforeEach(() => {
+      mockInmueblesMap.mockClear();
+    });
+
+    it('shows the "Lista" tab selected by default, with "Mapa" available but not selected', async () => {
+      mockListarPublicos.mockResolvedValueOnce([inmuebleConFoto]);
+
+      render(<BusquedaPublicaPage onVerDetalle={jest.fn()} />);
+      await screen.findByText(inmuebleConFoto.direccion);
+
+      const listaTab = screen.getByRole('tab', { name: /lista/i });
+      const mapaTab = screen.getByRole('tab', { name: /mapa/i });
+      expect(listaTab).toHaveAttribute('aria-selected', 'true');
+      expect(mapaTab).toHaveAttribute('aria-selected', 'false');
+      expect(mockInmueblesMap).not.toHaveBeenCalled();
+    });
+
+    it('renders InmueblesMap with the fetched inmuebles when the "Mapa" tab is selected', async () => {
+      mockListarPublicos.mockResolvedValueOnce([inmuebleConFoto, inmuebleSinFoto]);
+
+      render(<BusquedaPublicaPage onVerDetalle={jest.fn()} />);
+      await screen.findByText(inmuebleConFoto.direccion);
+
+      fireEvent.click(screen.getByRole('tab', { name: /mapa/i }));
+
+      expect(screen.getByTestId('inmuebles-map-mock')).toBeInTheDocument();
+      expect(mockInmueblesMap).toHaveBeenCalledWith(
+        expect.objectContaining({ inmuebles: [inmuebleConFoto, inmuebleSinFoto] }),
+      );
+      expect(screen.queryByText(inmuebleConFoto.direccion)).not.toBeInTheDocument();
+    });
+
+    it('returns to the list view when "Lista" is selected again', async () => {
+      mockListarPublicos.mockResolvedValueOnce([inmuebleConFoto]);
+
+      render(<BusquedaPublicaPage onVerDetalle={jest.fn()} />);
+      await screen.findByText(inmuebleConFoto.direccion);
+
+      fireEvent.click(screen.getByRole('tab', { name: /mapa/i }));
+      expect(screen.getByTestId('inmuebles-map-mock')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('tab', { name: /lista/i }));
+      expect(screen.getByText(inmuebleConFoto.direccion)).toBeInTheDocument();
+      expect(screen.queryByTestId('inmuebles-map-mock')).not.toBeInTheDocument();
+    });
   });
 
   it('calls onVerDetalle(id) with the correct id when a card is clicked', async () => {
